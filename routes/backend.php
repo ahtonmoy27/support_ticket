@@ -36,12 +36,19 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
         Route::post('tickets/{ticket}/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
         Route::get('attachments/{attachment}/download', [AttachmentController::class, 'download'])->name('attachments.download');
         Route::get('notifications', fn (Request $request) => response()->json($request->user()->notifications()->latest()->paginate(25)))->name('notifications.index');
+        Route::get('notifications/unread-count', fn (Request $request) => response()->json(['count' => $request->user()->unreadNotifications()->count()]))->name('notifications.unread-count');
         Route::patch('notifications/{id}/read', function (Request $request, string $id) {
             $request->user()->notifications()->findOrFail($id)->markAsRead();
 
             return response()->json(['message' => 'Marked as read.']);
         })->name('notifications.read');
+        Route::post('notifications/read-all', function (Request $request) {
+            $request->user()->unreadNotifications()->update(['read_at' => now()]);
+
+            return response()->json(['message' => 'All marked as read.']);
+        })->name('notifications.read-all');
         Route::prefix('admin')->middleware('can:administer-support')->name('admin.')->group(function () {
+            Route::get('customers', [AdminController::class, 'customers'])->name('customers.index');
             Route::post('categories', [AdminController::class, 'saveCategory'])->name('categories.store');
             Route::patch('categories/{category}', [AdminController::class, 'saveCategory'])->name('categories.update');
             Route::get('agents', [AdminController::class, 'agents'])->name('agents.index');

@@ -59,6 +59,8 @@ Use same-origin deployment for the future frontend. A separate cross-origin SPA 
 
 See [backend endpoint reference](docs/API.md) and [design decisions](docs/ARCHITECTURE.md).
 
+For the complete frontend handoff, screens, typed API integration, permissions, and implementation checklist, see [Frontend Implementation](docs/FRONTEND_IMPLEMENTATION.md).
+
 ## CSV imports
 
 Required unique headers:

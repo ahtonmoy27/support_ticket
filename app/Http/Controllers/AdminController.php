@@ -19,6 +19,26 @@ class AdminController extends Controller
         return response()->json(['data' => Category::query()->when(! $request->user()->isAdmin(), fn ($q) => $q->where('is_active', true))->orderBy('name')->get()]);
     }
 
+    public function customers(Request $request): JsonResponse
+    {
+        $request->validate(['q' => ['sometimes', 'string', 'max:100']]);
+
+        $customers = User::query()
+            ->where('role', 'customer')
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = '%'.trim($request->q).'%';
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', $term)
+                        ->orWhere('email', 'like', $term);
+                });
+            })
+            ->orderBy('name')
+            ->select(['id', 'name', 'email', 'is_active', 'created_at'])
+            ->paginate(25);
+
+        return response()->json($customers);
+    }
+
     public function saveCategory(Request $request, ?Category $category = null): JsonResponse
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:255', Rule::unique('categories')->ignore($category?->id)], 'is_active' => ['sometimes', 'boolean']]);

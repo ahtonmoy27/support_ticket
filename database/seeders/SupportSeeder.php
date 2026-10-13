@@ -25,13 +25,21 @@ class SupportSeeder extends Seeder
                     $policy->rules()->create(['priority' => $priority, 'resolution_minutes' => $minutes, 'warning_percent' => 80]);
                 }
             }
-            $email = config('support.admin_email');
-            $password = config('support.admin_password');
-            if ($email && $password) {
-                if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 12) {
-                    throw new \InvalidArgumentException('Bootstrap administrator requires a valid email and a password of at least 12 characters.');
-                }
-                User::firstOrCreate(['email' => $email], ['name' => 'Administrator', 'password' => $password, 'role' => 'admin', 'is_active' => true]);
+            $email = config('support.admin_email') ?: 'admin@support.test';
+            $password = config('support.admin_password') ?: 'SupportAdmin2026!';
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 12) {
+                throw new \InvalidArgumentException('Bootstrap administrator requires a valid email and a password of at least 12 characters.');
+            }
+            $created = ! User::where('email', $email)->exists();
+            User::firstOrCreate(
+                ['email' => $email],
+                ['name' => 'Administrator', 'password' => $password, 'role' => 'admin', 'is_active' => true]
+            );
+            if ($created) {
+                $this->command->info("Admin account created → email: {$email}  password: {$password}");
+                $this->command->warn('Change this password immediately after first login!');
+            } else {
+                $this->command->line("Admin account already exists: {$email}");
             }
         });
     }
