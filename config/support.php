@@ -1,4 +1,5 @@
 <?php
+
 return [
     'admin_email' => env('SUPPORT_ADMIN_EMAIL'),
     'admin_password' => env('SUPPORT_ADMIN_PASSWORD'),

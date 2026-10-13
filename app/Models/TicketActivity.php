@@ -1,14 +1,28 @@
 <?php
+
 namespace App\Models;
-use Illuminate\Database\Eloquent\Model;
+
+use Database\Factories\TicketActivityFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-class TicketActivity extends Model {
-/** @use HasFactory<\Database\Factories\TicketActivityFactory> */
-use HasFactory;
-protected $guarded = ['id'];
-public $timestamps = false;
+use Illuminate\Database\Eloquent\Model;
 
-protected function casts(): array { return ['old_values' => 'array','new_values' => 'array','created_at' => 'immutable_datetime']; }
+class TicketActivity extends Model
+{
+    /** @use HasFactory<TicketActivityFactory> */
+    use HasFactory;
 
-protected static function booted(): void { static::updating(fn () => throw new \LogicException('Audit history is immutable.')); static::deleting(fn () => throw new \LogicException('Audit history is immutable.')); }
+    protected $guarded = ['id'];
+
+    public $timestamps = false;
+
+    protected function casts(): array
+    {
+        return ['old_values' => 'array', 'new_values' => 'array', 'created_at' => 'immutable_datetime'];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(fn () => throw new \LogicException('Audit history is immutable.'));
+        static::deleting(fn () => throw new \LogicException('Audit history is immutable.'));
+    }
 }

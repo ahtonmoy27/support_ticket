@@ -1,13 +1,20 @@
 <?php
+
 namespace App\Models;
-use Illuminate\Database\Eloquent\Model;
+
+use Database\Factories\BusinessCalendarFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-class BusinessCalendar extends Model {
-/** @use HasFactory<\Database\Factories\BusinessCalendarFactory> */
-use HasFactory;
-protected $guarded = ['id'];
+use Illuminate\Database\Eloquent\Model;
 
+class BusinessCalendar extends Model
+{
+    /** @use HasFactory<BusinessCalendarFactory> */
+    use HasFactory;
 
-protected function casts(): array { return ['hours' => 'array','exceptions' => 'array']; }
+    protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return ['hours' => 'array', 'exceptions' => 'array'];
+    }
 }

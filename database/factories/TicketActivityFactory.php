@@ -1,8 +1,19 @@
 <?php
+
 namespace Database\Factories;
+
+use App\Models\Ticket;
+use App\Models\TicketActivity;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-/** @extends Factory<\App\Models\TicketActivity> */
-class TicketActivityFactory extends Factory {
-    protected $model = \App\Models\TicketActivity::class;
-    public function definition(): array { return ['ticket_id'=>\App\Models\Ticket::factory(),'actor_id'=>\App\Models\User::factory(),'action'=>'ticket.created','visibility'=>'public','old_values'=>[],'new_values'=>[]]; }
+
+/** @extends Factory<TicketActivity> */
+class TicketActivityFactory extends Factory
+{
+    protected $model = TicketActivity::class;
+
+    public function definition(): array
+    {
+        return ['ticket_id' => Ticket::factory(), 'actor_id' => User::factory(), 'action' => 'ticket.created', 'visibility' => 'public', 'old_values' => [], 'new_values' => []];
+    }
 }

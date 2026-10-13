@@ -1,13 +1,20 @@
 <?php
+
 namespace App\Models;
-use Illuminate\Database\Eloquent\Model;
+
+use Database\Factories\ImportRowFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-class ImportRow extends Model {
-/** @use HasFactory<\Database\Factories\ImportRowFactory> */
-use HasFactory;
-protected $guarded = ['id'];
+use Illuminate\Database\Eloquent\Model;
 
+class ImportRow extends Model
+{
+    /** @use HasFactory<ImportRowFactory> */
+    use HasFactory;
 
-protected function casts(): array { return ['errors' => 'array']; }
+    protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return ['errors' => 'array'];
+    }
 }
