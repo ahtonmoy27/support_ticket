@@ -19,7 +19,7 @@ class TicketImport extends Model
 
     protected function casts(): array
     {
-        return [];
+        return ['created_at' => 'immutable_datetime', 'updated_at' => 'immutable_datetime'];
     }
 
     public function rows(): HasMany

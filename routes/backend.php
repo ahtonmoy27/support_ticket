@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Tickets\Services\SupportHealthCheck;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
@@ -49,6 +50,7 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
             return response()->json(['message' => 'All marked as read.']);
         })->name('notifications.read-all');
         Route::prefix('admin')->middleware('can:administer-support')->name('admin.')->group(function () {
+            Route::get('health', fn (SupportHealthCheck $health) => response()->json(['data' => $health->execute()]))->name('health');
             Route::get('customers', [AdminController::class, 'customers'])->name('customers.index');
             Route::post('categories', [AdminController::class, 'saveCategory'])->name('categories.store');
             Route::patch('categories/{category}', [AdminController::class, 'saveCategory'])->name('categories.update');

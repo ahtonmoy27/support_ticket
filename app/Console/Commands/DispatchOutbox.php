@@ -6,6 +6,7 @@ use App\Models\OutboxEvent;
 use App\Models\User;
 use App\Notifications\TicketChanged;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DispatchOutbox extends Command
@@ -30,6 +31,8 @@ class DispatchOutbox extends Command
                 }, 3);
             }
         });
+
+        Cache::put('support.heartbeat.outbox', now()->timestamp, now()->addDay());
 
         return self::SUCCESS;
     }

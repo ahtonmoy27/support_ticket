@@ -40,3 +40,10 @@ jobs:
       - run: composer install --prefer-dist --no-interaction
       - run: vendor/bin/pint --test
       - run: php artisan test --compact
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: support-load-profile
+          path: storage/framework/testing/support-load.json
+          if-no-files-found: ignore

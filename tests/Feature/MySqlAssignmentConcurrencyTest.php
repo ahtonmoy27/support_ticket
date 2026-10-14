@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Domain\Tickets\Actions\CreateTicket;
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketImport;
 use App\Models\User;
 use Database\Seeders\SupportSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -26,14 +28,27 @@ class MySqlAssignmentConcurrencyTest extends TestCase
         $this->seed(SupportSeeder::class);
     }
 
-    /** @param list<array> $arguments */
-    private function concurrent(array $arguments): array
+    protected function tearDown(): void
+    {
+        RefreshDatabaseState::$migrated = false;
+        parent::tearDown();
+    }
+
+    /**
+     * @param  list<array{0:string,1:int,2:int,3?:int}>  $arguments
+     * @return list<string|array{status:int,duration_ms:float|int,queries:int,query_ms:float|int,transaction_rollbacks:int}>
+     */
+    private function concurrent(array $arguments, bool $metrics = false): array
     {
         $processes = [];
         $results = [];
         $start = microtime(true) + 1;
         foreach ($arguments as $args) {
             $command = [PHP_BINARY, base_path('tests/Support/claim-worker.php'), $args[0], (string) $args[1], (string) $start, (string) $args[2]];
+            if ($metrics || isset($args[3])) {
+                $command[] = $metrics ? 'metrics' : '';
+                $command[] = (string) ($args[3] ?? 0);
+            }
             $pipes = [];
             $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path());
             $this->assertIsResource($process);
@@ -46,7 +61,7 @@ class MySqlAssignmentConcurrencyTest extends TestCase
             fclose($pipes[1]);
             fclose($pipes[2]);
             $this->assertSame(0, proc_close($process), $error);
-            $results[] = trim($output);
+            $results[] = $metrics ? json_decode($output, true, flags: JSON_THROW_ON_ERROR) : trim($output);
         }
 
         return $results;
@@ -113,5 +128,92 @@ class MySqlAssignmentConcurrencyTest extends TestCase
         foreach ($agents as $agent) {
             $this->assertSame(2, $agent->assignedTickets()->count());
         }
+    }
+
+    public function test_parallel_imports_with_same_external_id_create_one_ticket(): void
+    {
+        $customer = User::factory()->create();
+        $imports = TicketImport::factory()->count(4)->create();
+        $arguments = $imports->map(fn (TicketImport $import): array => ['import-duplicate', $customer->id, $import->id])->all();
+        $this->assertSame(['200', '200', '200', '200'], $this->concurrent($arguments));
+        $this->assertSame(1, Ticket::count());
+        $this->assertSame(3, (int) TicketImport::sum('skipped_rows'));
+        $this->assertSame(4, (int) TicketImport::sum('processed_rows'));
+    }
+
+    public function test_parallel_reassignment_preserves_a_complete_audit_chain(): void
+    {
+        $category = Category::first();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $agents = User::factory()->count(2)->create(['role' => 'agent']);
+        foreach ($agents as $agent) {
+            $agent->categories()->attach($category);
+        }
+        $ticket = app(CreateTicket::class)->execute(User::factory()->create(), [
+            'subject' => 'Reassign', 'description' => 'Assignment race', 'priority' => 'critical', 'category_id' => $category->id,
+        ]);
+        $this->assertSame(['200', '200'], $this->concurrent([
+            ['assign', $admin->id, $ticket->id, $agents[0]->id], ['assign', $admin->id, $ticket->id, $agents[1]->id],
+        ]));
+        $activities = $ticket->activities()->where('action', 'ticket.assigned')->orderBy('id')->get();
+        $this->assertCount(2, $activities);
+        $this->assertSame($activities[0]->new_values['assigned_agent_id'], $activities[1]->old_values['assigned_agent_id']);
+        $this->assertSame($activities[1]->new_values['assigned_agent_id'], $ticket->refresh()->assigned_agent_id);
+    }
+
+    public function test_load_profile_measures_concurrent_create_claim_assign_and_import(): void
+    {
+        $category = Category::first();
+        $customer = User::factory()->create();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $agents = User::factory()->count(2)->create(['role' => 'agent']);
+        foreach ($agents as $agent) {
+            $agent->categories()->attach($category);
+        }
+        $profiles = [];
+        foreach (['create', 'claim', 'assign', 'import'] as $operation) {
+            $arguments = [];
+            for ($index = 0; $index < 8; $index++) {
+                if ($operation === 'create') {
+                    $arguments[] = ['create', $customer->id, $category->id];
+                } elseif ($operation === 'import') {
+                    $arguments[] = ['import', $customer->id, TicketImport::factory()->create()->id];
+                } else {
+                    $ticket = app(CreateTicket::class)->execute($customer, [
+                        'subject' => 'Load', 'description' => 'Load fixture', 'priority' => 'critical', 'category_id' => $category->id,
+                    ]);
+                    $arguments[] = $operation === 'claim' ? ['claim', $agents[0]->id, $ticket->id]
+                        : ['assign', $admin->id, $ticket->id, $agents[1]->id];
+                }
+            }
+            $samples = [];
+            $started = hrtime(true);
+            foreach (array_chunk($arguments, 4) as $batch) {
+                $samples = array_merge($samples, $this->concurrent($batch, true));
+            }
+            $seconds = (hrtime(true) - $started) / 1e9;
+            $latencies = array_column($samples, 'duration_ms');
+            sort($latencies);
+            $profiles[$operation] = [
+                'requests' => count($samples), 'concurrency' => 4,
+                'p50_ms' => $latencies[(int) ceil(count($latencies) * .50) - 1],
+                'p95_ms' => $latencies[(int) ceil(count($latencies) * .95) - 1],
+                'throughput_per_second_including_process_startup' => round(count($samples) / $seconds, 2),
+                'max_queries' => max(array_column($samples, 'queries')),
+                'transaction_rollbacks' => array_sum(array_column($samples, 'transaction_rollbacks')),
+                'failed_requests' => count(array_filter($samples, fn (array $sample): bool => $sample['status'] !== 200)),
+            ];
+        }
+        $path = storage_path('framework/testing/support-load.json');
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0777, true);
+        }
+        file_put_contents($path, json_encode(['measured_at' => now()->toIso8601String(), 'scope' => 'local MySQL domain actions; excludes HTTP and production traffic', 'profiles' => $profiles], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        foreach ($profiles as $operation => $profile) {
+            $this->assertSame(0, $profile['failed_requests'], $operation);
+            $this->assertLessThan((int) (getenv('SUPPORT_LOAD_MAX_P95_MS') ?: 5000), $profile['p95_ms'], $operation);
+            $this->assertLessThanOrEqual(80, $profile['max_queries'], $operation);
+        }
+        $this->assertSame(32, Ticket::count());
     }
 }

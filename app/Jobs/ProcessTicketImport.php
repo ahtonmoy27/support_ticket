@@ -38,6 +38,7 @@ class ProcessTicketImport implements ShouldQueue
 
     public function failed(?\Throwable $exception): void
     {
-        TicketImport::whereKey($this->importId)->update(['status' => 'failed', 'error' => 'Processing failed after retries. Check the failed job log.']);
+        TicketImport::whereKey($this->importId)->whereIn('status', ['pending', 'processing'])
+            ->update(['status' => 'failed', 'error' => 'Processing failed after retries. Check the failed job log.']);
     }
 }
