@@ -4,6 +4,7 @@ namespace App\Domain\Assignment\Actions;
 
 use App\Domain\Audit\Services\RecordActivity;
 use App\Domain\Tickets\Enums\TicketStatus;
+use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ class AssignTicket
     public function execute(int $ticketId, User $actor, ?int $agentId = null, bool $claim = false): Ticket
     {
         return DB::transaction(function () use ($ticketId, $actor, $agentId, $claim) {
-            DB::table('support_locks')->where('name', 'assignment')->lockForUpdate()->first();
+            Category::query()->whereKey(Ticket::query()->select('category_id')->whereKey($ticketId))->lockForUpdate()->firstOrFail();
             $ticket = Ticket::query()->lockForUpdate()->findOrFail($ticketId);
             Gate::forUser($actor)->authorize($claim ? 'claim' : 'assign', $ticket);
             abort_if(! $ticket->status->isActive() || ($claim && ($ticket->assigned_agent_id !== null || $ticket->status !== TicketStatus::Open)), 409, 'Ticket is no longer available for assignment.');
@@ -33,9 +34,17 @@ class AssignTicket
 
     public function autoAssign(Ticket $ticket, User $actor): void
     {
-        $agents = User::query()->where('role', 'agent')->where('is_active', true)->where('is_available', true)
-            ->whereHas('categories', fn ($q) => $q->where('categories.id', $ticket->category_id))->orderBy('id')->lockForUpdate()->get();
-        $selected = $agents->sortBy(fn (User $agent) => $agent->assignedTickets()->whereIn('status', TicketStatus::activeValues())->count())->first();
+        $agents = User::query()->select('users.*')->join('agent_categories', 'agent_categories.user_id', '=', 'users.id')
+            ->where('role', 'agent')->where('is_active', true)->where('is_available', true)
+            ->where('agent_categories.category_id', $ticket->category_id)->orderBy('users.id')->lockForUpdate()->get();
+        if ($agents->isEmpty()) {
+            return;
+        }
+        /** A locking read sees current workloads even inside a repeatable-read transaction. */
+        $workloads = Ticket::query()->whereIn('assigned_agent_id', $agents->modelKeys())
+            ->whereIn('status', TicketStatus::activeValues())->selectRaw('assigned_agent_id, COUNT(*) as total')
+            ->groupBy('assigned_agent_id')->lockForUpdate()->pluck('total', 'assigned_agent_id');
+        $selected = $agents->sortBy(fn (User $agent): int => (int) $workloads->get($agent->id, 0))->first();
         if ($selected) {
             $ticket->update(['assigned_agent_id' => $selected->id, 'status' => TicketStatus::InProgress]);
             $this->audit->execute($ticket, $actor, 'ticket.assigned', [], ['assigned_agent_id' => $selected->id]);

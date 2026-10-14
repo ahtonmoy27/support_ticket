@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\TicketController;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Resources\NotificationResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,7 +36,7 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
         Route::get('tickets/{ticket}/attachments', [AttachmentController::class, 'index'])->name('attachments.index');
         Route::post('tickets/{ticket}/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
         Route::get('attachments/{attachment}/download', [AttachmentController::class, 'download'])->name('attachments.download');
-        Route::get('notifications', fn (Request $request) => response()->json($request->user()->notifications()->latest()->paginate(25)))->name('notifications.index');
+        Route::get('notifications', fn (Request $request) => NotificationResource::collection($request->user()->notifications()->latest()->paginate(25)))->name('notifications.index');
         Route::get('notifications/unread-count', fn (Request $request) => response()->json(['count' => $request->user()->unreadNotifications()->count()]))->name('notifications.unread-count');
         Route::patch('notifications/{id}/read', function (Request $request, string $id) {
             $request->user()->notifications()->findOrFail($id)->markAsRead();

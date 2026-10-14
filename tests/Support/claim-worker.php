@@ -4,6 +4,7 @@ use App\Domain\Assignment\Actions\AssignTicket;
 use App\Domain\Tickets\Actions\CreateTicket;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -14,6 +15,7 @@ if (config('database.default') !== 'mysql' || config('database.connections.mysql
     exit(2);
 }
 try {
+    DB::statement('SET SESSION innodb_lock_wait_timeout = 3');
     $user = User::findOrFail((int) $argv[2]);
     $startAt = (float) $argv[3];
     while (microtime(true) < $startAt) {

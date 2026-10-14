@@ -2,38 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ProcessTicketImport;
+use App\Domain\Tickets\Actions\StartTicketImport;
+use App\Http\Requests\StartTicketImportRequest;
+use App\Http\Resources\TicketImportResource;
 use App\Models\TicketImport;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImportController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(TicketImport::query()->orderByDesc('id')->paginate(25));
+        return TicketImportResource::collection(TicketImport::query()->orderByDesc('id')->paginate(25))->response();
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StartTicketImportRequest $request, StartTicketImport $action): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'extensions:csv', 'max:51200']]);
-        $path = $request->file('file')->store('imports', 'private');
-        try {
-            $import = TicketImport::create(['created_by' => $request->user()->id, 'filename' => basename($request->file('file')->getClientOriginalName()), 'storage_key' => $path]);
-        } catch (\Throwable $exception) {
-            Storage::disk('private')->delete($path);
-            throw $exception;
-        }
-        ProcessTicketImport::dispatch($import->id)->afterCommit();
+        $import = $action->execute($request->user(), $request->file('file'));
 
-        return response()->json(['data' => $import], 202);
+        return response()->json(['data' => new TicketImportResource($import)], 202);
     }
 
     public function show(TicketImport $import): JsonResponse
     {
-        return response()->json(['data' => $import]);
+        return response()->json(['data' => new TicketImportResource($import)]);
     }
 
     public function errors(TicketImport $import): StreamedResponse

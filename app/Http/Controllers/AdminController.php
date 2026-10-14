@@ -2,21 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Assignment\Actions\CreateAgent;
+use App\Domain\Assignment\Actions\UpdateAgent;
+use App\Domain\SLA\Services\PublishSlaPolicy;
+use App\Domain\Tickets\Actions\SaveCategory;
+use App\Http\Requests\CreateAgentRequest;
+use App\Http\Requests\SaveCategoryRequest;
 use App\Http\Requests\SlaPolicyRequest;
-use App\Models\BusinessCalendar;
+use App\Http\Requests\UpdateAgentRequest;
+use App\Http\Resources\CategoryResource;
+use App\Http\Resources\SlaPolicyResource;
+use App\Http\Resources\UserResource;
 use App\Models\Category;
 use App\Models\SlaPolicy;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
     public function categories(Request $request): JsonResponse
     {
-        return response()->json(['data' => Category::query()->when(! $request->user()->isAdmin(), fn ($q) => $q->where('is_active', true))->orderBy('name')->get()]);
+        return response()->json(['data' => CategoryResource::collection(Category::query()->when(! $request->user()->isAdmin(), fn ($q) => $q->where('is_active', true))->orderBy('name')->get())]);
     }
 
     public function customers(Request $request): JsonResponse
@@ -36,73 +43,48 @@ class AdminController extends Controller
             ->select(['id', 'name', 'email', 'is_active', 'created_at'])
             ->paginate(25);
 
-        return response()->json($customers);
+        return UserResource::collection($customers)->response();
     }
 
-    public function saveCategory(Request $request, ?Category $category = null): JsonResponse
+    public function saveCategory(SaveCategoryRequest $request, SaveCategory $action, ?Category $category = null): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255', Rule::unique('categories')->ignore($category?->id)], 'is_active' => ['sometimes', 'boolean']]);
-        $category ??= new Category;
-        $category->fill($data)->save();
+        $data = $request->validated();
+        $category = $action->execute($request->user(), $data, $category);
 
-        return response()->json(['data' => $category]);
+        return response()->json(['data' => new CategoryResource($category)]);
     }
 
     public function agents(): JsonResponse
     {
-        return response()->json(User::query()->where('role', 'agent')->with('categories')->orderBy('id')->paginate(25));
+        return UserResource::collection(User::query()->where('role', 'agent')->with('categories')->orderBy('id')->paginate(25))->response();
     }
 
-    public function createAgent(Request $request): JsonResponse
+    public function createAgent(CreateAgentRequest $request, CreateAgent $action): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'max:255', 'unique:users'], 'password' => ['required', 'string', 'min:12'], 'category_ids' => ['required', 'array'], 'category_ids.*' => ['integer', 'distinct', 'exists:categories,id']]);
-        $agent = DB::transaction(function () use ($data) {
-            $agent = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password'], 'role' => 'agent']);
-            $agent->categories()->sync($data['category_ids']);
+        $data = $request->validated();
+        $agent = $action->execute($request->user(), $data);
 
-            return $agent;
-        });
-
-        return response()->json(['data' => $agent->load('categories')], 201);
+        return response()->json(['data' => new UserResource($agent)], 201);
     }
 
-    public function updateAgent(Request $request, User $agent): JsonResponse
+    public function updateAgent(UpdateAgentRequest $request, User $agent, UpdateAgent $action): JsonResponse
     {
         abort_unless($agent->isAgent(), 404);
-        $data = $request->validate(['name' => ['sometimes', 'required', 'string', 'max:255'], 'is_active' => ['sometimes', 'boolean'], 'is_available' => ['sometimes', 'boolean'], 'category_ids' => ['sometimes', 'array'], 'category_ids.*' => ['integer', 'distinct', 'exists:categories,id']]);
-        DB::transaction(function () use ($agent, $data) {
-            DB::table('support_locks')->where('name', 'assignment')->lockForUpdate()->first();
-            $locked = User::query()->lockForUpdate()->findOrFail($agent->id);
-            $locked->fill(collect($data)->except('category_ids')->all())->save();
-            if (isset($data['category_ids'])) {
-                $locked->categories()->sync($data['category_ids']);
-            }
-        }, 3);
+        $data = $request->validated();
+        $agent = $action->execute($request->user(), $agent->id, $data);
 
-        return response()->json(['data' => $agent->refresh()->load('categories')]);
+        return response()->json(['data' => new UserResource($agent)]);
     }
 
     public function policies(): JsonResponse
     {
-        return response()->json(SlaPolicy::query()->with(['calendar', 'rules'])->orderByDesc('id')->paginate(25));
+        return SlaPolicyResource::collection(SlaPolicy::query()->with(['calendar', 'rules'])->orderByDesc('id')->paginate(25))->response();
     }
 
-    public function createPolicy(SlaPolicyRequest $request): JsonResponse
+    public function createPolicy(SlaPolicyRequest $request, PublishSlaPolicy $action): JsonResponse
     {
-        $data = $request->validated();
-        $policy = DB::transaction(function () use ($data) {
-            DB::table('support_locks')->where('name', 'sla_policy')->lockForUpdate()->first();
-            $version = (SlaPolicy::max('version') ?? 0) + 1;
-            $calendar = BusinessCalendar::create(['name' => $data['name'].' v'.$version, 'timezone' => $data['timezone'], 'hours' => $data['hours'], 'exceptions' => $data['exceptions'] ?? []]);
-            SlaPolicy::query()->where('is_active', true)->update(['is_active' => false]);
-            $policy = SlaPolicy::create(['name' => $data['name'], 'version' => $version, 'business_calendar_id' => $calendar->id, 'is_active' => true]);
-            foreach ($data['rules'] as $rule) {
-                $policy->rules()->create($rule);
-            }
+        $policy = $action->execute($request->user(), $request->validated());
 
-            return $policy;
-        }, 3);
-
-        return response()->json(['data' => $policy->load(['calendar', 'rules'])], 201);
+        return response()->json(['data' => new SlaPolicyResource($policy)], 201);
     }
 }

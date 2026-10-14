@@ -11,6 +11,7 @@ use App\Domain\Tickets\Queries\TicketSearchQuery;
 use App\Http\Requests\CreateTicketRequest;
 use App\Http\Requests\SearchTicketsRequest;
 use App\Http\Requests\UpdateTicketRequest;
+use App\Http\Resources\TicketActivityResource;
 use App\Http\Resources\TicketResource;
 use App\Models\Ticket;
 use Illuminate\Http\JsonResponse;
@@ -81,6 +82,6 @@ class TicketController extends Controller
             $query->where('visibility', 'public');
         }
 
-        return response()->json($query->orderByDesc('id')->paginate(25));
+        return TicketActivityResource::collection($query->orderByDesc('id')->paginate(25))->response();
     }
 }

@@ -4,6 +4,7 @@ namespace App\Domain\Tickets\Actions;
 
 use App\Domain\Audit\Services\RecordActivity;
 use App\Domain\Tickets\Enums\TicketStatus;
+use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ class ChangeTicketStatus
     public function execute(int $id, User $actor, TicketStatus $next): Ticket
     {
         return DB::transaction(function () use ($id, $actor, $next) {
-            DB::table('support_locks')->where('name', 'assignment')->lockForUpdate()->first();
+            Category::query()->whereKey(Ticket::query()->select('category_id')->whereKey($id))->lockForUpdate()->firstOrFail();
             $ticket = Ticket::query()->lockForUpdate()->findOrFail($id);
             Gate::forUser($actor)->authorize(match ($next) {
                 TicketStatus::Closed => 'close', TicketStatus::Resolved => 'resolve', default => 'addInternalNote'

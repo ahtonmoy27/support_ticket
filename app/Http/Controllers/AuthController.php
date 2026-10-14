@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return response()->json(['data' => $user], 201);
+        return response()->json(['data' => new UserResource($user)], 201);
     }
 
     public function login(Request $request): JsonResponse
@@ -28,7 +29,7 @@ class AuthController extends Controller
         }
         $request->session()->regenerate();
 
-        return response()->json(['data' => $request->user()]);
+        return response()->json(['data' => new UserResource($request->user())]);
     }
 
     public function logout(Request $request): JsonResponse
@@ -42,6 +43,6 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(['data' => $request->user()]);
+        return response()->json(['data' => new UserResource($request->user())]);
     }
 }

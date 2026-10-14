@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Database\Seeders\SupportSeeder;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class MySqlAssignmentConcurrencyTest extends TestCase
@@ -82,5 +83,35 @@ class MySqlAssignmentConcurrencyTest extends TestCase
         $this->assertSame(4, Ticket::distinct()->count('ticket_number'));
         $this->assertSame(2, $one->assignedTickets()->count());
         $this->assertSame(2, $two->assignedTickets()->count());
+    }
+
+    public function test_unrelated_category_is_not_blocked_by_another_category_or_legacy_mutex(): void
+    {
+        $category = Category::first();
+        $otherCategory = Category::factory()->create();
+        $customer = User::factory()->create();
+        DB::transaction(function () use ($category, $otherCategory, $customer): void {
+            Category::query()->whereKey($category->id)->lockForUpdate()->firstOrFail();
+            DB::table('support_locks')->where('name', 'assignment')->lockForUpdate()->first();
+            $this->assertSame(['200'], $this->concurrent([['create', $customer->id, $otherCategory->id]]));
+        });
+    }
+
+    public function test_agents_shared_across_categories_are_balanced_under_parallel_creation(): void
+    {
+        $categories = [Category::first(), Category::factory()->create()];
+        $customer = User::factory()->create();
+        $agents = User::factory()->count(2)->create(['role' => 'agent']);
+        foreach ($agents as $agent) {
+            $agent->categories()->attach(array_map(fn (Category $category): int => $category->id, $categories));
+        }
+        $results = $this->concurrent([
+            ['create', $customer->id, $categories[0]->id], ['create', $customer->id, $categories[1]->id],
+            ['create', $customer->id, $categories[0]->id], ['create', $customer->id, $categories[1]->id],
+        ]);
+        $this->assertSame(['200', '200', '200', '200'], $results);
+        foreach ($agents as $agent) {
+            $this->assertSame(2, $agent->assignedTickets()->count());
+        }
     }
 }

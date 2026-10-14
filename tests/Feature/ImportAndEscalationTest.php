@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domain\SLA\Services\SlaEvaluationService;
 use App\Domain\Tickets\Actions\CreateTicket;
+use App\Domain\Tickets\Services\TicketImportProcessor;
 use App\Jobs\ProcessTicketImport;
 use App\Models\Category;
 use App\Models\OutboxEvent;
@@ -93,17 +94,17 @@ class ImportAndEscalationTest extends TestCase
         $category = Category::first()->name;
         $import = $this->import("customer_email,category,subject,description,priority,source_system,external_ticket_id\ncustomer@example.com,$category,One,Description,critical,legacy,123\ncustomer@example.com,$category,Duplicate,Description,critical,legacy,123\ncustomer@example.com,$category,Bad,Description,invalid,,\nmissing@example.com,$category,Missing,Description,high,,\ncustomer@example.com,$category,Two,Description,high,,\n");
         $job = new ProcessTicketImport($import->id);
-        $job->handle(app(CreateTicket::class));
+        $job->handle(app(TicketImportProcessor::class));
         $import->refresh();
         $this->assertSame('completed', $import->status);
         $this->assertSame(5, $import->processed_rows);
         $this->assertSame(2, $import->failed_rows);
         $this->assertSame(1, $import->skipped_rows);
         $this->assertSame(2, Ticket::count());
-        $job->handle(app(CreateTicket::class));
+        $job->handle(app(TicketImportProcessor::class));
         $this->assertSame(2, Ticket::count());
         $import->update(['status' => 'processing']);
-        $job->handle(app(CreateTicket::class));
+        $job->handle(app(TicketImportProcessor::class));
         $this->assertSame(2, Ticket::count());
         $this->assertSame(5, $import->refresh()->processed_rows);
         $this->actingAs($import->creator)->get('/api/v1/admin/imports/'.$import->id.'/errors')->assertOk()->assertDownload('import-'.$import->id.'-errors.csv');
@@ -112,14 +113,14 @@ class ImportAndEscalationTest extends TestCase
     public function test_bad_headers_and_row_limits_fail_cleanly(): void
     {
         $import = $this->import("wrong,headers\n1,2\n");
-        (new ProcessTicketImport($import->id))->handle(app(CreateTicket::class));
+        (new ProcessTicketImport($import->id))->handle(app(TicketImportProcessor::class));
         $this->assertSame('failed', $import->refresh()->status);
         $this->assertNotNull($import->error);
         User::factory()->create(['email' => 'customer@example.com']);
         $category = Category::first()->name;
         $import = $this->import("customer_email,category,subject,description,priority\ncustomer@example.com,$category,One,Description,critical\ncustomer@example.com,$category,Two,Description,critical\n");
         config(['support.import_max_rows' => 1]);
-        (new ProcessTicketImport($import->id))->handle(app(CreateTicket::class));
+        (new ProcessTicketImport($import->id))->handle(app(TicketImportProcessor::class));
         $this->assertSame('failed', $import->refresh()->status);
         $this->assertSame(1, Ticket::count());
     }

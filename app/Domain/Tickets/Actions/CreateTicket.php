@@ -23,7 +23,10 @@ class CreateTicket
         Gate::forUser($actor)->authorize('create', Ticket::class);
 
         return DB::transaction(function () use ($actor, $data) {
-            DB::table('support_locks')->where('name', 'assignment')->lockForUpdate()->first();
+            $category = Category::query()->whereKey($data['category_id'])->lockForUpdate()->first();
+            if (! $category?->is_active) {
+                throw ValidationException::withMessages(['category_id' => 'Category is inactive.']);
+            }
             $customerId = $data['customer_id'] ?? $actor->id;
             if ($customerId !== $actor->id && ! $actor->isAdmin()) {
                 abort(403, 'Only administrators can create tickets for another user.');
@@ -31,9 +34,6 @@ class CreateTicket
             $customer = User::query()->where('is_active', true)->findOrFail($customerId);
             if ($customerId !== $actor->id && $customer->role !== 'customer') {
                 throw ValidationException::withMessages(['customer_id' => 'Select a customer.']);
-            }
-            if (! Category::query()->whereKey($data['category_id'])->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['category_id' => 'Category is inactive.']);
             }
             $rule = SlaRule::query()->with('policy.calendar')->where('priority', $data['priority'])->whereHas('policy', fn ($q) => $q->where('is_active', true))->orderByDesc('id')->first();
             if (! $rule) {
