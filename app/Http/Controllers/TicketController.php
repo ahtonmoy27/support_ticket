@@ -24,7 +24,7 @@ class TicketController extends Controller
 {
     public function index(SearchTicketsRequest $request, TicketSearchQuery $query): AnonymousResourceCollection
     {
-        return TicketResource::collection($query->execute($request->user(), $request->validated())->with(['customer', 'assignedAgent', 'category'])->orderByDesc('created_at')->orderByDesc('id')->paginate($request->integer('per_page', 25))->withQueryString());
+        return TicketResource::collection($query->execute($request->user(), $request->validated())->with(['customer', 'creator:id,name', 'assignedAgent', 'category'])->orderByDesc('created_at')->orderByDesc('id')->paginate($request->integer('per_page', 25))->withQueryString());
     }
 
     public function store(CreateTicketRequest $request, CreateTicket $action): JsonResponse
@@ -36,7 +36,7 @@ class TicketController extends Controller
     {
         Gate::authorize('view', $ticket);
 
-        return new TicketResource($ticket->load(['customer', 'assignedAgent', 'category']));
+        return new TicketResource($ticket->load(['customer', 'creator:id,name', 'assignedAgent', 'category']));
     }
 
     public function update(UpdateTicketRequest $request, Ticket $ticket, UpdateTicket $action): TicketResource

@@ -17,7 +17,7 @@ Laravel 13 modular backend for customer support, assignment, business-hour SLAs,
 - Paginated search, filters, audit feeds, and cached database-aggregate dashboards.
 - Automated feature, calendar, import, notification, and multi-process MySQL concurrency tests.
 
-The frontend is intentionally outside this implementation. The existing welcome page remains. All backend endpoints return JSON and use the existing Laravel web/session middleware so a future React/Inertia frontend can reuse the same domain actions.
+The working React 19 / TypeScript frontend lives in the companion [support_ticket_front repository](https://github.com/ahtonmoy27/support_ticket_front). Clone both repositories for the complete application. This repository serves the Laravel JSON API; its root welcome page is not the ticket interface. Frontend setup is documented in that repository and in [the integration guide](docs/FRONTEND_IMPLEMENTATION.md).
 
 ## Local setup
 
@@ -27,9 +27,9 @@ Run Composer with PHP 8.4 or the installed compatible PHP 8.3:
 composer install
 ```
 
-Use your existing .env or copy .env.example for a new installation. Set APP_KEY with php artisan key:generate if absent. Create a MySQL 8.4 database with utf8mb4 and a dedicated database user, then set DB_CONNECTION=mysql, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, and DB_PASSWORD.
+For a new installation, copy .env.example to .env and run php artisan key:generate. Preserve an existing application key when upgrading. Create a MySQL 8.4 database with utf8mb4 and a dedicated database user, then set DB_CONNECTION=mysql, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, and DB_PASSWORD.
 
-The current workspace .env is preserved. Migrations and the standard categories/SLA rules have been applied to its configured database. MySQL verification uses a separate support_ticket_sla_test database and does not switch your application database.
+Run the migration/seeding command below against your development database. MySQL tests use a separate support_ticket_sla_test database; never point tests at an application or production database.
 
 Set SUPPORT_ADMIN_EMAIL and SUPPORT_ADMIN_PASSWORD (at least 12 characters) locally before seeding if you need an administrator. No default administrator password is shipped. Seeding creates the account only if that email does not exist, and does not overwrite existing credentials. Remove the bootstrap password after the account is created.
 
@@ -55,7 +55,7 @@ These /api/v1 endpoints deliberately run in the web middleware group; they are s
 4. Send the session cookie on subsequent requests. GET /api/v1/me identifies the actor.
 5. POST /api/v1/logout invalidates the session. Obtain a fresh CSRF token for a new login session.
 
-Use same-origin deployment for the future frontend. A separate cross-origin SPA would require additional deliberate CORS/session configuration.
+The companion frontend uses a Vite /api proxy during development. Set its API_PROXY_TARGET to this backend, for example http://127.0.0.1:8000. Keep VITE_API_BASE_URL unset for this mode. Production should proxy /api to Laravel on the frontend origin; direct cross-origin requests additionally require explicit credentialed CORS and compatible cookie/session settings.
 
 See [backend endpoint reference](docs/API.md) and [design decisions](docs/ARCHITECTURE.md).
 
@@ -102,7 +102,7 @@ The concurrency suite launches real PHP subprocesses against MySQL and verifies 
 - Waiting for customer does not pause the SLA. Resolved and closed tickets stop monitoring. Closed is terminal; reopening is not supported.
 - Creating a new SLA policy activates an immutable new version. Existing tickets retain snapshots. Priority changes use the original policy version and start time, and preserve historical breaches.
 - One exclusive role is stored on each user. Multi-role RBAC is not exposed. Calendar intervals and exceptions are validated JSON documents rather than separate interval tables.
-- Assignment uses a shared database lock to serialize allocation and active-workload-changing lifecycle operations. This favors correctness at assessment scale; replace it with ordered per-agent workload locks/counters if measured throughput requires it.
+- Allocation and workload-changing lifecycle operations lock their category row, followed by affected ticket/eligible-agent rows. Unrelated categories can progress independently; shared agents still serialize. Workload counts use one current locking aggregate query. Benchmark contention before introducing workload counters or parallel import chunks.
 - Database audit updates/deletes through Eloquent are rejected. Database administrators can still change records directly; production database permissions and retention controls remain operational responsibilities.
 - Mail is at-least-once: an interrupted outbox dispatch or external email acknowledgment can cause redelivery. Database notifications deduplicate by event and recipient. Notification workers recheck ticket authorization.
 - No malware scanner is integrated; permitted files become available after MIME/extension/size validation. Private S3 can be selected with TICKET_ATTACHMENT_DISK=s3 after installing/configuring the Laravel S3 filesystem adapter.
@@ -120,3 +120,17 @@ docker compose exec app php artisan migrate --seed
 ```
 
 APP_KEY must be set in the local .env. Attachments are stored in the shared private storage volume. Docker configuration is supplied but has not been built/run in this workspace because Docker is unavailable. Provide HTTPS at your ingress and your organization's backup/monitoring services. The included GitHub Actions workflow runs the complete suite against MySQL and checks PHP formatting.
+
+## Recovery and monitoring
+
+The scheduler runs SLA checks, outbox dispatch, stale-import recovery and support monitoring every minute. Keep the scheduler and both queue workers running.
+
+```sh
+php artisan tickets:monitor --json
+php artisan tickets:recover-imports
+php artisan tickets:retry-import 123
+```
+
+Replace 123 with an existing failed import ID. Retry resumes the original import and preserves row journals; fix missing files/configuration first. Stale pending/processing imports are requeued after TICKET_IMPORT_STALE_SECONDS (default 1,800 seconds, minimum 1,200). Monitoring checks queue backlog/age, failed imports/jobs, pending outbox and SLA/outbox heartbeats. It emits structured warning logs with cooldown and exits non-zero when unhealthy. The admin-only health endpoint is GET /api/v1/admin/health. An external monitor must independently invoke the command or inspect collected logs to detect a completely stopped scheduler. Historical failed job records remain available for diagnosis; acknowledge resolved records with Laravel queue:forget when appropriate.
+
+The MySQL suite writes storage/framework/testing/support-load.json with local action latency, query counts and rollback/failure counts; CI uploads the report. This is a small concurrency benchmark, not a production HTTP-capacity guarantee.

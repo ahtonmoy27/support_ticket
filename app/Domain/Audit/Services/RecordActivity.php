@@ -19,7 +19,8 @@ class RecordActivity
             if (str_starts_with($action, 'sla.')) {
                 $ids = array_merge($ids, User::query()->where('role', 'admin')->where('is_active', true)->pluck('id')->all());
             }
-            $ids = array_values(array_unique(array_filter($ids, fn ($id) => $id !== $actor?->id)));
+            $ids = array_values(array_unique(array_filter($ids, fn (int $id): bool => $id !== $actor?->id
+                || ($action === 'ticket.created' && $id === $ticket->customer_id))));
             if ($ids !== []) {
                 OutboxEvent::create(['ticket_id' => $ticket->id, 'event_type' => $action, 'recipient_ids' => $ids]);
             }

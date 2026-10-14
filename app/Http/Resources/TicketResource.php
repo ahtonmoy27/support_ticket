@@ -13,6 +13,8 @@ class TicketResource extends JsonResource
             'id' => $this->id, 'ticket_number' => $this->ticket_number, 'subject' => $this->subject, 'description' => $this->description,
             'priority' => $this->priority->value, 'status' => $this->status->value, 'customer_id' => $this->customer_id,
             'assigned_agent_id' => $this->assigned_agent_id, 'category_id' => $this->category_id,
+            'created_by' => $this->created_by,
+            'creator' => $this->whenLoaded('creator', fn () => $this->creator->only(['id', 'name'])),
             'customer' => $this->whenLoaded('customer', fn () => $this->customer->only(['id', 'name'])),
             'assigned_agent' => $this->whenLoaded('assignedAgent', fn () => $this->assignedAgent?->only(['id', 'name'])),
             'category' => $this->whenLoaded('category', fn () => $this->category->only(['id', 'name'])),

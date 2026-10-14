@@ -68,3 +68,11 @@ SLA policy example (POST /admin/sla-policies):
 Weekdays use 0=Sunday through 6=Saturday. Intervals must be sorted, non-overlapping, and contained within one day. Exception dates replace the day's normal intervals; an empty list closes the date. Overnight shifts must be split across two dates. Timestamps in responses are UTC.
 
 Ticket creation optionally accepts source_system/external_ticket_id together. Those identifiers are unique; request duplicates receive 422, and import duplicates are reported as skipped. No API accepts trusted author_id, created_by, or arbitrary status/assignment changes through ticket creation/update.
+
+## Response contracts
+
+Ticket resources always include created_by (the immutable creator user ID). Ticket list/detail responses additionally include creator: {id, name}, loaded without per-ticket queries. customer_id identifies the requester and may differ when an administrator creates on behalf of a customer. Creator email/password are not exposed.
+
+Paginated resource endpoints return {data: [...], links: {...}, meta: {current_page, last_page, per_page, total, ...}}. Categories return an unpaginated {data: [...]} envelope; single resources return {data: {...}}. GET /admin/health is restricted to administrators and returns {data: {healthy, checked_at, metrics, issues}}. Import retry is an operator CLI action, not an HTTP endpoint.
+
+Customers receive ticket.created acknowledgements even for tickets they create themselves. Other event notifications exclude the actor; mail delivery is queued and at-least-once. Internal event recipients and contents remain restricted.

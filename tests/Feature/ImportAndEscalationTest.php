@@ -145,4 +145,23 @@ class ImportAndEscalationTest extends TestCase
         $channel->send($ticket->customer, $notification);
         $this->assertSame(1, $ticket->customer->notifications()->count());
     }
+
+    public function test_customer_receives_creation_acknowledgement_with_or_without_auto_assignment(): void
+    {
+        Notification::fake();
+        $customer = User::factory()->create();
+        $agent = User::factory()->create(['role' => 'agent']);
+        $agent->categories()->attach(Category::first());
+        foreach ([false, true] as $autoAssign) {
+            config(['support.auto_assign' => $autoAssign]);
+            $ticket = app(CreateTicket::class)->execute($customer, [
+                'subject' => 'Acknowledgement', 'description' => 'Created by customer', 'priority' => 'critical', 'category_id' => Category::first()->id,
+            ]);
+            $event = OutboxEvent::query()->where('ticket_id', $ticket->id)->where('event_type', 'ticket.created')->sole();
+            $this->assertSame([$customer->id], $event->recipient_ids);
+        }
+        $this->artisan('tickets:dispatch-outbox')->assertSuccessful();
+        Notification::assertSentToTimes($customer, TicketChanged::class, 2);
+        Notification::assertSentTo($customer, TicketChanged::class, fn (TicketChanged $notification): bool => $notification->eventType === 'ticket.created');
+    }
 }

@@ -235,4 +235,16 @@ class TicketBackendTest extends TestCase
             $this->app->detectEnvironment(fn () => 'testing');
         }
     }
+
+    public function test_creator_is_distinct_from_customer_and_exposed_without_private_user_fields(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = User::factory()->create();
+        $response = $this->actingAs($admin)->postJson('/api/v1/tickets', $this->payload(['customer_id' => $customer->id]))
+            ->assertCreated()->assertJsonPath('data.created_by', $admin->id)->assertJsonPath('data.customer_id', $customer->id);
+        $this->actingAs($customer)->getJson('/api/v1/tickets/'.$response->json('data.id'))->assertOk()
+            ->assertJsonPath('data.creator.id', $admin->id)->assertJsonPath('data.creator.name', $admin->name)
+            ->assertJsonMissingPath('data.creator.email')->assertJsonMissingPath('data.creator.password');
+        $this->getJson('/api/v1/tickets')->assertOk()->assertJsonPath('data.0.creator.id', $admin->id);
+    }
 }

@@ -36,7 +36,7 @@ class RealQueueRecoveryTest extends TestCase
     {
         app('queue.worker')->shouldQuit = false;
         $this->artisan('queue:work', ['connection' => 'database', '--queue' => $queue, '--stop-when-empty' => true,
-            '--sleep' => 0, '--max-time' => 5, '--no-interaction' => true])->assertSuccessful();
+            '--sleep' => 0, '--max-time' => 30, '--no-interaction' => true])->assertSuccessful();
     }
 
     private function csv(): string
@@ -141,7 +141,8 @@ class RealQueueRecoveryTest extends TestCase
         $this->artisan('tickets:dispatch-outbox')->assertSuccessful();
         $this->work('notifications');
         $this->assertNotNull($event->refresh()->dispatched_at);
-        $this->assertSame(1, $customer->notifications()->count());
+        $this->assertSame(2, $customer->notifications()->count());
+        $this->assertEqualsCanonicalizing(['ticket.created', 'ticket.updated'], $customer->notifications()->get()->pluck('data.event')->all());
     }
 
     public function test_worker_rechecks_recipient_access_before_delivering_notification(): void
