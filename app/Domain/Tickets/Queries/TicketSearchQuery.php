@@ -34,11 +34,11 @@ class TicketSearchQuery
         if (! empty($filters['to'])) {
             $query->where('created_at', '<=', $filters['to'].' 23:59:59');
         }
-        if (! empty($filters['q'])) {
+        if (isset($filters['q']) && $filters['q'] !== '') {
             $term = $filters['q'];
             $query->where(function ($q) use ($term) {
                 $q->where('ticket_number', $term);
-                if ($q->getConnection()->getDriverName() === 'mysql') {
+                if ($q->getConnection()->getDriverName() === 'mysql' && mb_strlen($term) >= 3) {
                     $q->orWhereFullText(['subject', 'description'], $term);
                 } else {
                     $q->orWhere('subject', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%');

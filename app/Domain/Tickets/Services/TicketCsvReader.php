@@ -15,7 +15,7 @@ class TicketCsvReader
             throw new \RuntimeException('Cannot read import file.');
         }
         try {
-            $headers = fgetcsv($stream, 131072, ',', '"', '');
+            $headers = fgetcsv($stream, null, ',', '"', '');
             if (! is_array($headers)) {
                 throw new \InvalidArgumentException('CSV is empty.');
             }
@@ -25,7 +25,7 @@ class TicketCsvReader
                 throw new \InvalidArgumentException('Required unique CSV headers: customer_email,category,subject,description,priority.');
             }
             $rowNumber = 0;
-            while (($values = fgetcsv($stream, 131072, ',', '"', '')) !== false) {
+            while (($values = fgetcsv($stream, null, ',', '"', '')) !== false) {
                 if ($values === [null]) {
                     continue;
                 }
