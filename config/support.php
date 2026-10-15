@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'admin_email' => env('SUPPORT_ADMIN_EMAIL'),
-    'admin_password' => env('SUPPORT_ADMIN_PASSWORD'),
+    'admin_email' => env('SUPPORT_ADMIN_EMAIL', 'admin@gmail.com'),
+    'admin_password' => env('SUPPORT_ADMIN_PASSWORD', 'password123321'),
     'auto_assign' => env('TICKET_AUTO_ASSIGN', true),
     'attachment_disk' => env('TICKET_ATTACHMENT_DISK', 'private'),
     'import_stale_seconds' => (int) env('TICKET_IMPORT_STALE_SECONDS', 1800),

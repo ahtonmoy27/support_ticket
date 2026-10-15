@@ -49,9 +49,9 @@ npm run dev
 ### 3. Pre-Seeded Accounts for Testing
 | Role | Email | Password | Permissions & Notes |
 |---|---|---|---|
+| **Administrator** | `admin@gmail.com` | `password123321` | Full administrative access (Categories, Agents, SLA Policies, CSV Imports) |
 | **Support Agent** | `supporagent@gmail.com` | `password123321` | Linked to Technical, Billing & General categories |
 | **Customer** | `user@gmail.com` | `password123321` | Create tickets, view responses & notifications |
-| **Administrator** | Configured via `.env` (`SUPPORT_ADMIN_EMAIL`) | Set in `.env` | Category, Agent, SLA & Import administration |
 
 ---
 

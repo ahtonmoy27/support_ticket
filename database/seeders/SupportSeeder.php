@@ -79,6 +79,7 @@ class SupportSeeder extends Seeder
             $this->command->info('');
             $this->command->info('=== [EVALUATOR QUICK START GUIDE] ===');
             $this->command->info('Default Accounts:');
+            $this->command->info(' - Admin:    admin@gmail.com / password123321');
             $this->command->info(' - Agent:    supporagent@gmail.com / password123321');
             $this->command->info(' - Customer: user@gmail.com / password123321');
             $this->command->info('');
