@@ -6,6 +6,7 @@ use App\Models\Ticket;
 use App\Notifications\Channels\DatabaseChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -22,7 +23,12 @@ class TicketChanged extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', DatabaseChannel::class];
+        $channels = ['mail', DatabaseChannel::class];
+        if (config('broadcasting.default') && config('broadcasting.default') !== 'null') {
+            $channels[] = 'broadcast';
+        }
+
+        return $channels;
     }
 
     public function backoff(): array
@@ -43,6 +49,19 @@ class TicketChanged extends Notification implements ShouldQueue
         $ticket = Ticket::findOrFail($this->ticketId);
 
         return (new MailMessage)->subject('Support ticket '.$ticket->ticket_number)->line('Ticket '.$ticket->ticket_number.' was updated: '.$this->eventType.'.');
+    }
+
+    public function toBroadcast(object $notifiable): BroadcastMessage
+    {
+        $ticket = Ticket::find($this->ticketId);
+
+        return new BroadcastMessage([
+            'ticket_id' => $this->ticketId,
+            'ticket_number' => $ticket?->ticket_number,
+            'event' => $this->eventType,
+            'event_id' => $this->eventId,
+            'created_at' => now()->toIso8601String(),
+        ]);
     }
 
     public function toArray(object $notifiable): array
