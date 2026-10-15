@@ -64,6 +64,7 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
             Route::get('sla-policies', [AdminController::class, 'policies'])->name('sla.index');
             Route::post('sla-policies', [AdminController::class, 'createPolicy'])->name('sla.store');
             Route::get('imports', [ImportController::class, 'index'])->name('imports.index');
+            Route::get('imports/sample', [ImportController::class, 'sample'])->name('imports.sample');
             Route::post('imports', [ImportController::class, 'store'])->middleware('throttle:imports')->name('imports.store');
             Route::get('imports/{import}', [ImportController::class, 'show'])->name('imports.show');
             Route::get('imports/{import}/errors', [ImportController::class, 'errors'])->name('imports.errors');

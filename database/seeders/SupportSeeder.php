@@ -43,6 +43,35 @@ class SupportSeeder extends Seeder
             } else {
                 $this->command?->line('Bootstrap account already exists; credentials unchanged.');
             }
+
+            // Seed default Support Agent
+            $agent = User::firstOrCreate(
+                ['email' => 'supporagent@gmail.com'],
+                [
+                    'name' => 'Support Agent',
+                    'password' => 'password123321',
+                    'role' => 'agent',
+                    'is_active' => true,
+                    'is_available' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+            $allCategoryIds = Category::pluck('id')->all();
+            if (! empty($allCategoryIds)) {
+                $agent->categories()->syncWithoutDetaching($allCategoryIds);
+            }
+
+            // Seed default Customer
+            User::firstOrCreate(
+                ['email' => 'user@gmail.com'],
+                [
+                    'name' => 'Test Customer',
+                    'password' => 'password123321',
+                    'role' => 'customer',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
         });
     }
 }

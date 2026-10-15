@@ -54,9 +54,22 @@ class AdminController extends Controller
         return response()->json(['data' => new CategoryResource($category)]);
     }
 
-    public function agents(): JsonResponse
+    public function agents(Request $request): JsonResponse
     {
-        return UserResource::collection(User::query()->where('role', 'agent')->with('categories')->orderBy('id')->paginate(25))->response();
+        $query = User::query()
+            ->where('role', 'agent')
+            ->with('categories')
+            ->when($request->filled('category_id'), function ($q) use ($request) {
+                $q->whereHas('categories', fn ($cat) => $cat->where('categories.id', $request->input('category_id')));
+            })
+            ->when($request->boolean('available_only'), function ($q) {
+                $q->where('is_active', true)->where('is_available', true);
+            })
+            ->orderBy('name');
+
+        $perPage = min(100, max(1, (int) $request->input('per_page', 25)));
+
+        return UserResource::collection($query->paginate($perPage))->response();
     }
 
     public function createAgent(CreateAgentRequest $request, CreateAgent $action): JsonResponse
