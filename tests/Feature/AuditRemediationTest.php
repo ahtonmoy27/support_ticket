@@ -58,6 +58,7 @@ class AuditRemediationTest extends TestCase
         $this->assertStringNotContainsString($password, $output->fetch());
         $admin = User::where('email', 'bootstrap@example.test')->firstOrFail();
         $this->assertSame('admin', $admin->role);
+        $this->assertNotNull($admin->email_verified_at);
         $this->assertTrue(Hash::check($password, $admin->password));
         config(['support.admin_password' => 'AnotherPrivatePassword!']);
         $this->seed(SupportSeeder::class);

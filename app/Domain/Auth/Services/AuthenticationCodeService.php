@@ -7,7 +7,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthenticationCodeService
 {
-    private const int LifetimeMinutes = 10;
+    private const int LifetimeMinutes = 15;
 
     public function issue(string $email, string $purpose): string
     {

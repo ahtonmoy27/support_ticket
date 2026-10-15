@@ -36,7 +36,7 @@ class SupportSeeder extends Seeder
             $created = ! User::where('email', $email)->exists();
             User::firstOrCreate(
                 ['email' => $email],
-                ['name' => 'Administrator', 'password' => $password, 'role' => 'admin', 'is_active' => true]
+                ['name' => 'Administrator', 'password' => $password, 'role' => 'admin', 'is_active' => true, 'email_verified_at' => now()]
             );
             if ($created) {
                 $this->command?->info('Administrator account created.');

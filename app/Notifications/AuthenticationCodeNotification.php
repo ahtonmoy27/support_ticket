@@ -34,7 +34,7 @@ class AuthenticationCodeNotification extends Notification
             ->greeting('Support Desk verification')
             ->line("Use this code to {$action}:")
             ->line($this->code)
-            ->line('This code expires in 10 minutes. If you did not request it, ignore this email.');
+            ->line('This code expires in 15 minutes. If you did not request it, ignore this email.');
     }
 
     /**
