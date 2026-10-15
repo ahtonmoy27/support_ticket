@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Auth\Services\AuthenticationCodeService;
 use App\Domain\Tickets\Actions\CreateTicket;
 use App\Domain\Tickets\Services\SupportHealthCheck;
 use App\Jobs\ProcessTicketImport;
@@ -9,6 +10,7 @@ use App\Models\Category;
 use App\Models\OutboxEvent;
 use App\Models\TicketImport;
 use App\Models\User;
+use App\Notifications\AuthenticationCodeNotification;
 use App\Notifications\TicketChanged;
 use Database\Seeders\SupportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +47,19 @@ class RealQueueRecoveryTest extends TestCase
         $category = Category::first();
 
         return "customer_email,category,subject,description,priority\n{$customer->email},{$category->name},Queued,Description,critical\n";
+    }
+
+    public function test_authentication_mail_is_encrypted_in_real_queue_and_processed_by_worker(): void
+    {
+        $user = User::factory()->unverified()->create();
+        $code = app(AuthenticationCodeService::class)->issue($user->email, 'registration');
+        $user->notify((new AuthenticationCodeNotification($code, 'registration'))->beforeCommit());
+        $payload = DB::table('jobs')->where('queue', 'notifications')->value('payload');
+        $this->assertNotNull($payload);
+        $this->assertStringNotContainsString($code, $payload);
+        $this->work('notifications');
+        $this->assertSame(0, Queue::size('notifications'));
+        $this->assertDatabaseCount('failed_jobs', 0);
     }
 
     public function test_real_worker_processes_duplicate_import_jobs_without_duplicate_tickets(): void

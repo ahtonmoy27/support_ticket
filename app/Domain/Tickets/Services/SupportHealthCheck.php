@@ -19,7 +19,7 @@ class SupportHealthCheck
             'stuck_imports' => TicketImport::query()->whereIn('status', ['pending', 'processing'])->where('updated_at', '<=', now()->subSeconds(max(1200, (int) config('support.import_stale_seconds'))))->count(),
             'failed_imports' => TicketImport::query()->where('status', 'failed')->count(),
             'failed_jobs' => DB::connection(config('queue.failed.database'))->table(config('queue.failed.table', 'failed_jobs'))
-                ->where(fn ($query) => $query->where('payload', 'like', '%ProcessTicketImport%')->orWhere('payload', 'like', '%TicketChanged%'))->count(),
+                ->where(fn ($query) => $query->whereIn('queue', ['imports', 'notifications'])->orWhere('payload', 'like', '%ProcessTicketImport%')->orWhere('payload', 'like', '%TicketChanged%'))->count(),
         ];
         $issues = [];
         foreach (['stale_outbox', 'stuck_imports', 'failed_imports', 'failed_jobs'] as $metric) {

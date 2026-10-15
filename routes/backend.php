@@ -24,7 +24,7 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
         Route::post('reset-password', [AuthController::class, 'resetPassword'])->name('reset-password');
     });
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
-    Route::middleware(['auth', EnsureActiveUser::class, 'throttle:support'])->group(function () {
+    Route::middleware(['auth', 'auth.session', EnsureActiveUser::class, 'throttle:support'])->group(function () {
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::get('categories', [AdminController::class, 'categories'])->name('categories');
         Route::get('dashboard', DashboardController::class)->name('dashboard');

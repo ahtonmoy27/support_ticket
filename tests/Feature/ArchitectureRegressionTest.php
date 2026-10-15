@@ -64,6 +64,25 @@ class ArchitectureRegressionTest extends TestCase
         }
     }
 
+    public function test_date_filter_accepts_end_date_without_start_date(): void
+    {
+        $user = User::factory()->create();
+        $this->ticket($user);
+        $this->actingAs($user)->getJson('/api/v1/tickets?to='.now()->toDateString())
+            ->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/v1/tickets?from=2026-10-15&to=2026-10-14')->assertUnprocessable();
+    }
+
+    public function test_activity_actor_summary_and_ticket_calendar_are_exposed_without_credentials(): void
+    {
+        $user = User::factory()->create();
+        $ticket = $this->ticket($user);
+        $this->actingAs($user)->getJson('/api/v1/tickets/'.$ticket->id.'/activities')
+            ->assertOk()->assertJsonPath('data.0.actor.name', $user->name)
+            ->assertJsonMissingPath('data.0.actor.email')->assertJsonMissingPath('data.0.actor.password');
+        $this->getJson('/api/v1/tickets/'.$ticket->id)->assertOk()->assertJsonPath('data.sla_timezone', 'Asia/Dhaka');
+    }
+
     public function test_assignment_ignores_finished_work_and_ineligible_agents(): void
     {
         $category = Category::first();

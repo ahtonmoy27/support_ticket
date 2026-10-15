@@ -19,6 +19,7 @@ class CreateAgent
                 'password' => $data['password'], 'role' => 'agent',
             ]);
             $agent->categories()->sync($data['category_ids']);
+            $agent->forceFill(['email_verified_at' => now()])->save();
 
             return $agent->load('categories');
         }, 3);

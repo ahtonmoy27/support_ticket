@@ -77,7 +77,7 @@ class TicketController extends Controller
     public function activities(Request $request, Ticket $ticket): JsonResponse
     {
         Gate::authorize('view', $ticket);
-        $query = $ticket->activities();
+        $query = $ticket->activities()->with('actor:id,name');
         if ($request->user()->role === 'customer') {
             $query->where('visibility', 'public');
         }

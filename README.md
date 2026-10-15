@@ -14,7 +14,7 @@ Laravel 13 modular backend for customer support, assignment, business-hour SLAs,
 - Private attachments with MIME/extension/size validation and authorized downloads.
 - Streaming, queued CSV processing with row journals, progress, invalid-row reports, and external-reference deduplication.
 - Durable notification outbox, queued mail, idempotent database notifications, scoped notification reads.
-- Paginated search, filters, audit feeds, and cached database-aggregate dashboards.
+- Paginated search, filters, audit feeds, and fresh database-aggregate dashboards (no response cache).
 - Automated feature, calendar, import, notification, and multi-process MySQL concurrency tests.
 
 The working React 19 / TypeScript frontend lives in the companion [support_ticket_front repository](https://github.com/ahtonmoy27/support_ticket_front). Clone both repositories for the complete application. This repository serves the Laravel JSON API; its root welcome page is not the ticket interface. Frontend setup is documented in that repository and in [the integration guide](docs/FRONTEND_IMPLEMENTATION.md).

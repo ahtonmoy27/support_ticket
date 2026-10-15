@@ -9,6 +9,7 @@ use App\Notifications\AuthenticationCodeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,9 +18,13 @@ class AuthController extends Controller
 {
     public function register(Request $request, AuthenticationCodeService $codes): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'max:255', 'unique:users'], 'password' => ['required', 'confirmed', 'min:12'], 'role' => ['prohibited']]);
-        $user = User::create($data + ['role' => 'customer']);
-        $user->notify(new AuthenticationCodeNotification($codes->issue($user->email, 'registration'), 'registration'));
+        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'max:255', 'unique:users'], 'password' => ['required', 'string', 'confirmed', 'min:12', 'max:255'], 'role' => ['prohibited']]);
+        $user = DB::transaction(function () use ($data, $codes): User {
+            $user = User::create($data + ['role' => 'customer']);
+            $user->notify(new AuthenticationCodeNotification($codes->issue($user->email, 'registration'), 'registration'));
+
+            return $user;
+        }, 3);
 
         return response()->json(['message' => 'Account created. Check your email for the verification code.', 'email' => $user->email], 201);
     }
@@ -27,9 +32,10 @@ class AuthController extends Controller
     public function verifyEmail(Request $request, AuthenticationCodeService $codes): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email'], 'code' => ['required', 'digits:6']]);
+        $codes->verify($data['email'], 'registration', $data['code'], function (User $user): void {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        });
         $user = User::where('email', $data['email'])->firstOrFail();
-        $codes->verify($user->email, 'registration', $data['code']);
-        $user->forceFill(['email_verified_at' => now()])->save();
         Auth::login($user);
         $request->session()->regenerate();
 
@@ -39,7 +45,7 @@ class AuthController extends Controller
     public function resendVerification(Request $request, AuthenticationCodeService $codes): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email']]);
-        $user = User::where('email', $data['email'])->whereNull('email_verified_at')->first();
+        $user = User::where('email', $data['email'])->where('is_active', true)->whereNull('email_verified_at')->first();
         if ($user !== null) {
             $user->notify(new AuthenticationCodeNotification($codes->issue($user->email, 'registration'), 'registration'));
         }
@@ -50,7 +56,7 @@ class AuthController extends Controller
     public function forgotPassword(Request $request, AuthenticationCodeService $codes): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email']]);
-        $user = User::where('email', $data['email'])->first();
+        $user = User::where('email', $data['email'])->where('is_active', true)->first();
         if ($user !== null) {
             $user->notify(new AuthenticationCodeNotification($codes->issue($user->email, 'password-reset'), 'password-reset'));
         }
@@ -63,14 +69,14 @@ class AuthController extends Controller
         $data = $request->validate([
             'email' => ['required', 'email'],
             'code' => ['required', 'digits:6'],
-            'password' => ['required', 'confirmed', 'min:12'],
+            'password' => ['required', 'string', 'confirmed', 'min:12', 'max:255'],
         ]);
-        $user = User::where('email', $data['email'])->first();
-        if ($user === null) {
-            throw ValidationException::withMessages(['code' => 'Invalid or expired verification code.']);
-        }
-        $codes->verify($user->email, 'password-reset', $data['code']);
-        $user->forceFill(['password' => Hash::make($data['password']), 'remember_token' => Str::random(60)])->save();
+        $codes->verify($data['email'], 'password-reset', $data['code'], function (User $user) use ($data): void {
+            $user->forceFill(['password' => Hash::make($data['password']), 'remember_token' => Str::random(60)])->save();
+            if (config('session.driver') === 'database') {
+                DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->where('user_id', $user->id)->delete();
+            }
+        });
 
         return response()->json(['message' => 'Password reset successfully.']);
     }
@@ -83,7 +89,12 @@ class AuthController extends Controller
         }
         if ($request->user()?->email_verified_at === null) {
             Auth::logout();
-            throw ValidationException::withMessages(['email' => 'Verify your email before signing in.']);
+
+            return response()->json([
+                'message' => 'Verify your email before signing in.',
+                'code' => 'email_unverified',
+                'errors' => ['email' => ['Verify your email before signing in.']],
+            ], 422);
         }
         $request->session()->regenerate();
 

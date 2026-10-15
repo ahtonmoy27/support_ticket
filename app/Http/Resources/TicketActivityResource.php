@@ -16,6 +16,7 @@ class TicketActivityResource extends JsonResource
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
             'actor_id' => $this->actor_id,
+            'actor' => $this->whenLoaded('actor', fn () => $this->actor?->only(['id', 'name'])),
             'action' => $this->action,
             'visibility' => $this->visibility,
             'old_values' => $this->old_values,

@@ -19,7 +19,7 @@ class SearchTicketsRequest extends FormRequest
         return [
             'q' => ['nullable', 'string', 'max:255'], 'status' => ['nullable', Rule::enum(TicketStatus::class)], 'priority' => ['nullable', Rule::enum(TicketPriority::class)],
             'category_id' => ['nullable', 'integer'], 'customer_id' => ['nullable', 'integer'], 'assigned_agent_id' => ['nullable', 'integer'],
-            'unassigned' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'unassigned' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', Rule::when($this->filled('from'), ['after_or_equal:from'])],
             'sla_state' => ['nullable', Rule::in(['within', 'warning', 'breached'])], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\TicketActivityFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TicketActivity extends Model
 {
@@ -14,6 +15,11 @@ class TicketActivity extends Model
     protected $guarded = ['id'];
 
     public $timestamps = false;
+
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
 
     protected function casts(): array
     {
