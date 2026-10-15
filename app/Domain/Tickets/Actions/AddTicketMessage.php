@@ -23,7 +23,8 @@ class AddTicketMessage
             $message = $ticket->messages()->create([
                 'body' => $data['body'], 'visibility' => $data['visibility'], 'author_id' => $actor->id,
             ]);
-            $this->audit->execute($ticket, $actor, 'ticket.replied', [], ['message_id' => $message->id], $message->visibility);
+            $action = $data['visibility'] === 'internal' ? 'ticket.internal_note' : 'ticket.replied';
+            $this->audit->execute($ticket, $actor, $action, [], ['message_id' => $message->id], $message->visibility);
 
             return $message;
         }, 3);

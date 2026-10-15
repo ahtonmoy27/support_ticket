@@ -24,9 +24,14 @@ class AssignTicket
             abort_if(! $ticket->status->isActive() || ($claim && ($ticket->assigned_agent_id !== null || $ticket->status !== TicketStatus::Open)), 409, 'Ticket is no longer available for assignment.');
             $agent = User::query()->lockForUpdate()->findOrFail($claim ? $actor->id : $agentId);
             $this->assertEligible($agent, $ticket->category_id, $claim && $actor->isAdmin());
-            $old = ['assigned_agent_id' => $ticket->assigned_agent_id, 'status' => $ticket->status->value];
+            if ($ticket->assigned_agent_id === $agent->id) {
+                return $ticket;
+            }
+            $oldAgentId = $ticket->assigned_agent_id;
+            $old = ['assigned_agent_id' => $oldAgentId, 'status' => $ticket->status->value];
             $ticket->update(['assigned_agent_id' => $agent->id, 'status' => TicketStatus::InProgress]);
-            $this->audit->execute($ticket, $actor, $claim ? 'ticket.claimed' : 'ticket.assigned', $old, ['assigned_agent_id' => $agent->id, 'status' => $ticket->status->value]);
+            $action = $claim ? 'ticket.claimed' : ($oldAgentId !== null && $oldAgentId !== $agent->id ? 'ticket.reassigned' : 'ticket.assigned');
+            $this->audit->execute($ticket, $actor, $action, $old, ['assigned_agent_id' => $agent->id, 'status' => $ticket->status->value]);
 
             return $ticket;
         }, 3);
@@ -61,8 +66,13 @@ class AssignTicket
             ->groupBy('assigned_agent_id')->lockForUpdate()->pluck('total', 'assigned_agent_id');
         $selected = $agents->sortBy(fn (User $agent): int => (int) $workloads->get($agent->id, 0))->first();
         if ($selected) {
+            if ($ticket->assigned_agent_id === $selected->id) {
+                return;
+            }
+            $oldAgentId = $ticket->assigned_agent_id;
             $ticket->update(['assigned_agent_id' => $selected->id, 'status' => TicketStatus::InProgress]);
-            $this->audit->execute($ticket, $actor, 'ticket.assigned', [], ['assigned_agent_id' => $selected->id]);
+            $action = ($oldAgentId !== null && $oldAgentId !== $selected->id) ? 'ticket.reassigned' : 'ticket.assigned';
+            $this->audit->execute($ticket, $actor, $action, ['assigned_agent_id' => $oldAgentId], ['assigned_agent_id' => $selected->id]);
         }
     }
 
