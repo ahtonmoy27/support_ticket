@@ -38,6 +38,21 @@ class AssignTicket
             ->where('role', 'agent')->where('is_active', true)->where('is_available', true)
             ->where('agent_categories.category_id', $ticket->category_id)->orderBy('users.id')->lockForUpdate()->get();
         if ($agents->isEmpty()) {
+            $categoryName = $ticket->relationLoaded('category')
+                ? $ticket->category?->name
+                : Category::query()->whereKey($ticket->category_id)->value('name');
+            $categoryName = $categoryName ?? (string) $ticket->category_id;
+
+            $this->audit->execute(
+                $ticket,
+                null,
+                'ticket.auto_assignment_skipped',
+                [],
+                ['note' => "Auto-assignment skipped: no eligible agents found for category '{$categoryName}'"],
+                'public',
+                false
+            );
+
             return;
         }
         /** A locking read sees current workloads even inside a repeatable-read transaction. */

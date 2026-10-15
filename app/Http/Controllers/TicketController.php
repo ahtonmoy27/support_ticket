@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Assignment\Actions\AssignTicket;
+use App\Domain\SLA\Services\SlaEvaluationService;
 use App\Domain\Tickets\Actions\ChangeTicketStatus;
 use App\Domain\Tickets\Actions\CreateTicket;
 use App\Domain\Tickets\Actions\UpdateTicket;
@@ -22,8 +23,10 @@ use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
-    public function index(SearchTicketsRequest $request, TicketSearchQuery $query): AnonymousResourceCollection
+    public function index(SearchTicketsRequest $request, TicketSearchQuery $query, SlaEvaluationService $sla): AnonymousResourceCollection
     {
+        $sla->execute();
+
         return TicketResource::collection($query->execute($request->user(), $request->validated())->with(['customer', 'creator:id,name', 'assignedAgent', 'category'])->orderByDesc('created_at')->orderByDesc('id')->paginate($request->integer('per_page', 25))->withQueryString());
     }
 
@@ -32,9 +35,11 @@ class TicketController extends Controller
         return (new TicketResource($action->execute($request->user(), $request->validated())))->response()->setStatusCode(201);
     }
 
-    public function show(Request $request, Ticket $ticket): TicketResource
+    public function show(Request $request, Ticket $ticket, SlaEvaluationService $sla): TicketResource
     {
         Gate::authorize('view', $ticket);
+
+        $sla->evaluateTicket($ticket);
 
         return new TicketResource($ticket->load(['customer', 'creator:id,name', 'assignedAgent', 'category']));
     }
@@ -74,9 +79,12 @@ class TicketController extends Controller
         return new TicketResource($action->execute($ticket->id, $request->user(), TicketStatus::Closed));
     }
 
-    public function activities(Request $request, Ticket $ticket): JsonResponse
+    public function activities(Request $request, Ticket $ticket, SlaEvaluationService $sla): JsonResponse
     {
         Gate::authorize('view', $ticket);
+
+        $sla->evaluateTicket($ticket);
+
         $query = $ticket->activities()->with('actor:id,name');
         if ($request->user()->role === 'customer') {
             $query->where('visibility', 'public');

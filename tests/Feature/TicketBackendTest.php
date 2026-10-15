@@ -253,4 +253,23 @@ class TicketBackendTest extends TestCase
             ->assertJsonMissingPath('data.creator.email')->assertJsonMissingPath('data.creator.password');
         $this->getJson('/api/v1/tickets')->assertOk()->assertJsonPath('data.0.creator.id', $admin->id);
     }
+
+    public function test_auto_assignment_logs_audit_note_when_no_eligible_agents_for_category(): void
+    {
+        config(['support.auto_assign' => true]);
+        $category = Category::factory()->create(['name' => 'DevOps Special', 'is_active' => true]);
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        $response = $this->actingAs($customer)->postJson('/api/v1/tickets', $this->payload([
+            'category_id' => $category->id,
+        ]))->assertCreated();
+
+        $ticket = Ticket::findOrFail($response->json('data.id'));
+        $this->assertNull($ticket->assigned_agent_id);
+        $this->assertSame('open', $ticket->status->value);
+
+        $activity = $ticket->activities()->where('action', 'ticket.auto_assignment_skipped')->first();
+        $this->assertNotNull($activity);
+        $this->assertSame("Auto-assignment skipped: no eligible agents found for category 'DevOps Special'", $activity->new_values['note']);
+    }
 }

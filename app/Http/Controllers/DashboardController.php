@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\SLA\Services\SlaEvaluationService;
 use App\Domain\Tickets\Enums\TicketStatus;
 use App\Domain\Tickets\Queries\TicketSearchQuery;
 use App\Models\User;
@@ -10,8 +11,12 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, TicketSearchQuery $query): JsonResponse
+    public function __invoke(Request $request, TicketSearchQuery $query, SlaEvaluationService $sla): JsonResponse
     {
+        // On-demand evaluation ensures SLA escalations and breach audits are up to date
+        // even if the background cron scheduler is not running during local inspection.
+        $sla->execute();
+
         $user = $request->user();
         $base = $query->execute($user);
         $agents = (clone $base)->selectRaw('assigned_agent_id, COUNT(*) as total')

@@ -71,6 +71,30 @@ class ImportAndEscalationTest extends TestCase
         $this->assertSame(0, $resolved->escalations()->count());
     }
 
+    public function test_on_demand_sla_evaluation_triggers_when_viewing_ticket_or_dashboard_without_scheduler(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $ticket = app(CreateTicket::class)->execute($customer, [
+            'subject' => 'Urgent Issue',
+            'description' => 'Test description',
+            'category_id' => Category::first()->id,
+            'priority' => 'critical',
+        ]);
+
+        $breachTime = now()->subMinutes(5);
+        $ticket->update(['sla_warning_at' => now()->subMinutes(10), 'sla_due_at' => $breachTime]);
+        $this->assertNull($ticket->fresh()->sla_breached_at);
+        $this->assertSame(0, $ticket->escalations()->count());
+
+        $response = $this->actingAs($customer)->getJson('/api/v1/tickets/'.$ticket->id);
+        $response->assertOk();
+
+        $refreshed = $ticket->fresh();
+        $this->assertNotNull($refreshed->sla_breached_at);
+        $this->assertSame(1, $refreshed->escalations()->where('level', 'breach')->count());
+        $this->assertSame(1, $refreshed->activities()->where('action', 'sla.breach')->count());
+    }
+
     public function test_outbox_dispatches_once_and_notification_omits_private_content(): void
     {
         Notification::fake();

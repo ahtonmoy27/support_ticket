@@ -56,6 +56,7 @@ class SupportSeeder extends Seeder
                     'email_verified_at' => now(),
                 ]
             );
+            $agent->update(['is_active' => true, 'is_available' => true]);
             $allCategoryIds = Category::pluck('id')->all();
             if (! empty($allCategoryIds)) {
                 $agent->categories()->syncWithoutDetaching($allCategoryIds);
@@ -73,5 +74,19 @@ class SupportSeeder extends Seeder
                 ]
             );
         });
+
+        if ($this->command) {
+            $this->command->info('');
+            $this->command->info('=== [EVALUATOR QUICK START GUIDE] ===');
+            $this->command->info('Default Accounts:');
+            $this->command->info(' - Agent:    supporagent@gmail.com / password123321');
+            $this->command->info(' - Customer: user@gmail.com / password123321');
+            $this->command->info('');
+            $this->command->info('Background Workers:');
+            $this->command->info(' - Unified Queue Worker: php artisan queue:work --queue=imports,notifications,default');
+            $this->command->info(' - SLA Automation:       php artisan schedule:work');
+            $this->command->info(' (Note: On-demand SLA escalation is also automatically triggered when viewing Dashboard & Tickets)');
+            $this->command->info('=====================================');
+        }
     }
 }

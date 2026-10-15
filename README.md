@@ -1,5 +1,60 @@
 # Support Ticket & SLA Management — Backend
 
+> [!IMPORTANT]
+> **Complete Application Source Code Notice (Backend & Frontend):**
+> This repository contains the **Laravel 13 REST API backend**. The companion modern React 19 / TypeScript frontend UI is maintained in its dedicated repository:
+> 👉 **Frontend Repository:** **[https://github.com/ahtonmoy27/support_ticket_front](https://github.com/ahtonmoy27/support_ticket_front)**
+>
+> To evaluate the complete application, clone and run both repositories side by side.
+
+---
+
+## ⚡ Evaluator Quick Start Guide
+
+### 1. Backend Setup (This Repository)
+```sh
+# Clone & install dependencies
+composer install
+cp .env.example .env
+php artisan key:generate
+
+# Configure your MySQL database in .env, then migrate & seed default users
+php artisan migrate --seed
+php artisan serve
+```
+
+**Run background workers in separate terminals:**
+```sh
+# Terminal 2: Processes CSV imports, emails & notifications
+php artisan queue:work --queue=imports,notifications,default
+
+# Terminal 3: SLA Escalation Automation
+php artisan schedule:work
+```
+*(Note: On-demand SLA escalation is also automatically evaluated whenever viewing the Dashboard or Ticket Details, ensuring live updates even if the scheduler is idle).*
+
+### 2. Frontend Setup (UI Repository)
+```sh
+# Clone companion frontend repository
+git clone https://github.com/ahtonmoy27/support_ticket_front.git
+cd support_ticket_front
+
+# Install dependencies & start Vite development server
+npm install
+npm run dev
+# Open http://localhost:5173 in browser
+```
+*(The Vite development proxy automatically routes all `/api` requests to `http://127.0.0.1:8000`).*
+
+### 3. Pre-Seeded Accounts for Testing
+| Role | Email | Password | Permissions & Notes |
+|---|---|---|---|
+| **Support Agent** | `supporagent@gmail.com` | `password123321` | Linked to Technical, Billing & General categories |
+| **Customer** | `user@gmail.com` | `password123321` | Create tickets, view responses & notifications |
+| **Administrator** | Configured via `.env` (`SUPPORT_ADMIN_EMAIL`) | Set in `.env` | Category, Agent, SLA & Import administration |
+
+---
+
 Laravel 13 modular backend for customer support, assignment, business-hour SLAs, conversations, attachments, CSV imports, and operational reporting. PHP 8.3+ is supported by the existing application; PHP 8.4 is the recommended deployment runtime. MySQL 8.4/InnoDB is the production target.
 
 ## Implemented

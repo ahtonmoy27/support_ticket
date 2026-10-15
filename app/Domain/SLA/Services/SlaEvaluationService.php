@@ -11,6 +11,37 @@ class SlaEvaluationService
 {
     public function __construct(private RecordActivity $audit) {}
 
+    public function evaluateTicket(Ticket $ticket): bool
+    {
+        $now = now();
+        if (! $ticket->status->isActive() || ! $ticket->sla_warning_at || $ticket->sla_warning_at->greaterThan($now)) {
+            return false;
+        }
+
+        return (bool) DB::transaction(function () use ($ticket, $now) {
+            $locked = Ticket::query()->lockForUpdate()->find($ticket->id);
+            if (! $locked || ! $locked->status->isActive() || ! $locked->sla_warning_at || $locked->sla_warning_at->greaterThan($now)) {
+                return false;
+            }
+
+            $level = ($locked->sla_due_at && $locked->sla_due_at->lessThanOrEqualTo($now)) ? 'breach' : 'warning';
+            if ($locked->escalations()->where('cycle', 1)->where('level', $level)->exists()) {
+                return false;
+            }
+
+            $triggered = $level === 'breach' ? $locked->sla_due_at : $locked->sla_warning_at;
+            $locked->escalations()->create(['cycle' => 1, 'level' => $level, 'triggered_at' => $triggered]);
+            if ($level === 'breach' && ! $locked->sla_breached_at) {
+                $locked->update(['sla_breached_at' => $locked->sla_due_at]);
+            }
+            $this->audit->execute($locked, null, 'sla.'.$level, [], ['triggered_at' => $triggered->toIso8601String()], 'internal');
+
+            $ticket->refresh();
+
+            return true;
+        }, 3);
+    }
+
     public function execute(): int
     {
         $count = 0;
