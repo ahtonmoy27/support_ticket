@@ -126,11 +126,10 @@ class SampleTicketSeeder extends Seeder
         ]);
         $assignAction->execute($t6->id, $admin, $agent->id);
         $statusAction->execute($t6->id, $agent, TicketStatus::Resolved);
-        $statusAction->execute($t6->id, $agent, TicketStatus::Closed);
+        $statusAction->execute($t6->id, $admin, TicketStatus::Closed);
 
         if ($this->command) {
             $this->command->info('Sample tickets seeded (Open, In Progress, Waiting for Customer, Resolved, Closed, SLA Breached & Approaching).');
         }
     }
 }
-
