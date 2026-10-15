@@ -131,7 +131,7 @@ class RealQueueRecoveryTest extends TestCase
         $customer->notify(new TicketChanged($ticket->id, 'ticket.updated', $event->id));
         $customer->notify(new TicketChanged($ticket->id, 'ticket.updated', $event->id));
         $this->work('notifications');
-        $this->assertSame(1, $customer->notifications()->count());
+        $this->assertSame(1, $customer->notifications()->where('data->event_id', $event->id)->count());
         $this->assertSame(0, Queue::size('notifications'));
     }
 
@@ -142,6 +142,7 @@ class RealQueueRecoveryTest extends TestCase
             'subject' => 'Outbox', 'description' => 'Atomic queue dispatch', 'priority' => 'critical', 'category_id' => Category::first()->id,
         ]);
         $event = OutboxEvent::create(['ticket_id' => $ticket->id, 'event_type' => 'ticket.updated', 'recipient_ids' => [$customer->id]]);
+        $queuedBeforeFailure = Queue::size('notifications');
         Event::listen(JobQueued::class, fn () => throw new \RuntimeException('Simulated queue dispatch outage.'));
         try {
             $this->artisan('tickets:dispatch-outbox');
@@ -152,7 +153,7 @@ class RealQueueRecoveryTest extends TestCase
             Event::forget(JobQueued::class);
         }
         $this->assertNull($event->refresh()->dispatched_at);
-        $this->assertSame(0, Queue::size('notifications'));
+        $this->assertSame($queuedBeforeFailure, Queue::size('notifications'));
         $this->artisan('tickets:dispatch-outbox')->assertSuccessful();
         $this->work('notifications');
         $this->assertNotNull($event->refresh()->dispatched_at);

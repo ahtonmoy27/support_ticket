@@ -167,7 +167,7 @@ class ImportAndEscalationTest extends TestCase
         $channel = new DatabaseChannel;
         $channel->send($ticket->customer, $notification);
         $channel->send($ticket->customer, $notification);
-        $this->assertSame(1, $ticket->customer->notifications()->count());
+        $this->assertSame(1, $ticket->customer->notifications()->where('data->event_id', $event->id)->count());
     }
 
     public function test_customer_receives_creation_acknowledgement_with_or_without_auto_assignment(): void

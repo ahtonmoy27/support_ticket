@@ -18,15 +18,16 @@ class TicketChanged extends Notification implements ShouldQueue
 
     public function __construct(public int $ticketId, public string $eventType, public int $eventId)
     {
-        $this->onQueue(env('QUEUE_NOTIFICATIONS_NAME', 'notifications'));
+        $this->onQueue(config('support.notifications_queue'));
     }
 
     public function via(object $notifiable): array
     {
-        $channels = ['mail', DatabaseChannel::class];
-        if (config('broadcasting.default') && config('broadcasting.default') !== 'null') {
+        $channels = [DatabaseChannel::class];
+        if (in_array(config('broadcasting.default'), ['pusher', 'reverb', 'ably', 'redis', 'mercure'], true)) {
             $channels[] = 'broadcast';
         }
+        $channels[] = 'mail';
 
         return $channels;
     }
@@ -55,13 +56,13 @@ class TicketChanged extends Notification implements ShouldQueue
     {
         $ticket = Ticket::find($this->ticketId);
 
-        return new BroadcastMessage([
+        return (new BroadcastMessage([
             'ticket_id' => $this->ticketId,
             'ticket_number' => $ticket?->ticket_number,
             'event' => $this->eventType,
             'event_id' => $this->eventId,
             'created_at' => now()->toIso8601String(),
-        ]);
+        ]))->onQueue(config('support.notifications_queue'));
     }
 
     public function toArray(object $notifiable): array

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'notifications_queue' => env('QUEUE_NOTIFICATIONS_NAME', 'notifications'),
     'admin_email' => env('SUPPORT_ADMIN_EMAIL', 'admin@gmail.com'),
     'admin_password' => env('SUPPORT_ADMIN_PASSWORD', 'password123321'),
     'auto_assign' => env('TICKET_AUTO_ASSIGN', true),

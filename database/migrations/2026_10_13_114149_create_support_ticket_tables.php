@@ -176,6 +176,7 @@ return new class extends Migration
         foreach (['notifications', 'outbox_events', 'import_rows', 'ticket_escalations', 'ticket_activities', 'attachments', 'ticket_messages', 'tickets', 'ticket_imports', 'sla_rules', 'sla_policies', 'business_calendars', 'agent_categories', 'categories'] as $table) {
             Schema::dropIfExists($table);
         }
+        Schema::table('users', fn (Blueprint $t) => $t->dropIndex(['role']));
         Schema::table('users', fn (Blueprint $t) => $t->dropColumn(['role', 'is_active', 'is_available']));
     }
 };

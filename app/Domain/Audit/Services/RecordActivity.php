@@ -2,9 +2,12 @@
 
 namespace App\Domain\Audit\Services;
 
+use App\Jobs\DeliverOutboxEvent;
 use App\Models\OutboxEvent;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 
 class RecordActivity
 {
@@ -22,7 +25,14 @@ class RecordActivity
             $ids = array_values(array_unique(array_filter($ids, fn (int $id): bool => $id !== $actor?->id
                 || ($action === 'ticket.created' && $id === $ticket->customer_id))));
             if ($ids !== []) {
-                OutboxEvent::create(['ticket_id' => $ticket->id, 'event_type' => $action, 'recipient_ids' => $ids]);
+                $event = OutboxEvent::create(['ticket_id' => $ticket->id, 'event_type' => $action, 'recipient_ids' => $ids]);
+                DB::afterCommit(function () use ($event): void {
+                    try {
+                        Bus::dispatch(new DeliverOutboxEvent($event->id));
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                    }
+                });
             }
         }
     }
