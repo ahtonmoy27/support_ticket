@@ -18,6 +18,10 @@ Route::prefix('api/v1')->name('backend.')->group(function () {
     Route::middleware(['guest', 'throttle:login'])->group(function () {
         Route::post('register', [AuthController::class, 'register'])->name('register');
         Route::post('login', [AuthController::class, 'login'])->name('login');
+        Route::post('verify-email', [AuthController::class, 'verifyEmail'])->name('verify-email');
+        Route::post('resend-verification', [AuthController::class, 'resendVerification'])->name('resend-verification');
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->name('forgot-password');
+        Route::post('reset-password', [AuthController::class, 'resetPassword'])->name('reset-password');
     });
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
     Route::middleware(['auth', EnsureActiveUser::class, 'throttle:support'])->group(function () {

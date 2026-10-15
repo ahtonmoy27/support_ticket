@@ -6,10 +6,12 @@ use App\Domain\Tickets\Actions\CreateTicket;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Notifications\AuthenticationCodeNotification;
 use Carbon\CarbonImmutable;
 use Database\Seeders\SupportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -45,10 +47,14 @@ class TicketBackendTest extends TestCase
 
     public function test_authentication_and_customer_registration_cannot_elevate_roles(): void
     {
+        Notification::fake();
         $this->getJson('/api/v1/tickets')->assertUnauthorized();
         $data = ['name' => 'Customer', 'email' => 'new@example.com', 'password' => 'long-password-123', 'password_confirmation' => 'long-password-123'];
         $this->postJson('/api/v1/register', $data + ['role' => 'admin'])->assertUnprocessable();
-        $this->postJson('/api/v1/register', $data)->assertCreated()->assertJsonPath('data.role', 'customer');
+        $this->postJson('/api/v1/register', $data)->assertCreated();
+        $user = User::where('email', 'new@example.com')->firstOrFail();
+        $code = Notification::sent($user, AuthenticationCodeNotification::class)->first()->code;
+        $this->postJson('/api/v1/verify-email', ['email' => $user->email, 'code' => $code])->assertOk()->assertJsonPath('data.role', 'customer');
         $this->getJson('/api/v1/me')->assertOk();
         $this->postJson('/api/v1/logout')->assertOk();
         $this->postJson('/api/v1/login', ['email' => 'new@example.com', 'password' => 'wrong'])->assertUnprocessable();
