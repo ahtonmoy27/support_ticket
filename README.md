@@ -36,12 +36,20 @@ Set SUPPORT_ADMIN_EMAIL and SUPPORT_ADMIN_PASSWORD (at least 12 characters) loca
 ```sh
 php artisan migrate --seed
 php artisan serve
-php artisan queue:work --queue=notifications,default --tries=3 --timeout=60
-php artisan queue:work --queue=imports --tries=3 --timeout=900
+
+# In another terminal (processes all background jobs: imports, emails, notifications):
+php artisan queue:work --queue=imports,notifications,default
+
+# In a third terminal (monitors SLA timers & escalations every minute):
 php artisan schedule:work
 ```
 
-Database queues work out of the box. For production set QUEUE_CONNECTION=redis, CACHE_STORE=redis, SESSION_DRIVER=redis, and configure Redis with a compatible PHP Redis extension. Queue retry_after is 1,200 seconds so the 900-second import timeout cannot cause premature redelivery. Use a shared cache for multi-server scheduler locks. Supervisor/systemd should supervise independent notification and import workers; run php artisan schedule:run every minute from cron. Horizon is not installed; the included implementation uses standard Laravel queue workers.
+Database queues work out of the box with `php artisan queue:work`. For high-throughput production setups, you can separate workers by queue:
+```sh
+php artisan queue:work --queue=imports --timeout=900
+php artisan queue:work --queue=notifications,default --timeout=60
+```
+For production set QUEUE_CONNECTION=redis, CACHE_STORE=redis, SESSION_DRIVER=redis, and configure Redis with a compatible PHP Redis extension. Queue retry_after is 1,200 seconds so the 900-second import timeout cannot cause premature redelivery. Use a shared cache for multi-server scheduler locks. Supervisor/systemd should supervise workers; run php artisan schedule:run every minute from cron. Horizon is not installed; the included implementation uses standard Laravel queue workers.
 
 The default calendar is Sunday–Thursday, 09:00–18:00, Asia/Dhaka. Default targets: low 2,880, medium 1,440, high 480, critical 120 business minutes. Warning is at 80% of business time.
 

@@ -17,7 +17,7 @@ class TicketChanged extends Notification implements ShouldQueue
 
     public function __construct(public int $ticketId, public string $eventType, public int $eventId)
     {
-        $this->onQueue('notifications');
+        $this->onQueue(env('QUEUE_NOTIFICATIONS_NAME', 'notifications'));
     }
 
     public function via(object $notifiable): array

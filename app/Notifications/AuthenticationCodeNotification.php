@@ -17,7 +17,7 @@ class AuthenticationCodeNotification extends Notification implements ShouldBeEnc
 
     public function __construct(public string $code, public string $purpose)
     {
-        $this->onQueue('notifications');
+        $this->onQueue(env('QUEUE_NOTIFICATIONS_NAME', 'notifications'));
         $this->afterCommit();
     }
 

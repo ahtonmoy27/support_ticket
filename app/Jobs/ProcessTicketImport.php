@@ -18,7 +18,7 @@ class ProcessTicketImport implements ShouldQueue
 
     public function __construct(public int $importId)
     {
-        $this->onQueue('imports');
+        $this->onQueue(env('QUEUE_IMPORTS_NAME', 'imports'));
     }
 
     public function middleware(): array
