@@ -11,7 +11,6 @@ use App\Notifications\SlaBreachedNotification;
 use App\Notifications\TicketAssignedNotification;
 use App\Notifications\TicketChanged;
 use App\Notifications\TicketCreatedNotification;
-use App\Notifications\TicketNotification;
 use App\Notifications\TicketReassignedNotification;
 use App\Notifications\TicketReplyNotification;
 use App\Notifications\TicketStatusChangedNotification;

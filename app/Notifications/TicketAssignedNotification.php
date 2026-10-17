@@ -47,4 +47,3 @@ class TicketAssignedNotification extends TicketNotification
         return "Ticket #{$ticket?->ticket_number} was assigned to {$ticket?->assignedAgent?->name}.";
     }
 }
-

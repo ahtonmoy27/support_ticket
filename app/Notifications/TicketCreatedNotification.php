@@ -18,7 +18,7 @@ class TicketCreatedNotification extends TicketNotification
             $mail->greeting("Hello {$notifiable->name},")
                 ->line("Your support ticket #{$ticket->ticket_number} has been created successfully.")
                 ->line("Subject: {$ticket->subject}")
-                ->line("Our support team will review your request shortly.")
+                ->line('Our support team will review your request shortly.')
                 ->action('View Ticket', url("/tickets/{$ticket->id}"));
         } else {
             $customerName = $ticket->customer?->name ?? 'A customer';
@@ -41,4 +41,3 @@ class TicketCreatedNotification extends TicketNotification
         return "New ticket #{$ticket?->ticket_number} created by {$ticket?->customer?->name}.";
     }
 }
-

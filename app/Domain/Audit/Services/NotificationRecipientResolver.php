@@ -8,8 +8,8 @@ use App\Models\User;
 class NotificationRecipientResolver
 {
     /**
-     * @param array<string, mixed> $old
-     * @param array<string, mixed> $new
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
      * @return list<int>
      */
     public function resolve(Ticket $ticket, ?User $actor, string $action, array $old = [], array $new = [], string $visibility = 'public'): array
@@ -201,4 +201,3 @@ class NotificationRecipientResolver
             ->all();
     }
 }
-

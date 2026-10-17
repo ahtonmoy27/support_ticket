@@ -21,8 +21,11 @@ class TicketResource extends JsonResource
             'sla_started_at' => $this->sla_started_at, 'sla_warning_at' => $this->sla_warning_at, 'sla_due_at' => $this->sla_due_at,
             'sla_timezone' => $this->sla_calendar_snapshot['timezone'] ?? 'UTC',
             'sla_breached_at' => $this->sla_breached_at, 'resolved_at' => $this->resolved_at, 'closed_at' => $this->closed_at,
-            'sla_state' => $this->resolved_at ? ($this->resolved_at->lessThan($this->sla_due_at) && ! $this->sla_breached_at ? 'met' : 'breached')
-                : ($this->sla_due_at->lessThanOrEqualTo(now()) ? 'breached' : ($this->sla_warning_at->lessThanOrEqualTo(now()) ? 'warning' : 'within')),
+            'sla_state' => ! $this->sla_due_at
+                ? 'within'
+                : ($this->resolved_at
+                    ? ($this->resolved_at->lessThan($this->sla_due_at) && ! $this->sla_breached_at ? 'met' : 'breached')
+                    : ($this->sla_due_at->lessThanOrEqualTo(now()) ? 'breached' : ($this->sla_warning_at?->lessThanOrEqualTo(now()) ? 'warning' : 'within'))),
             'created_at' => $this->created_at, 'updated_at' => $this->updated_at,
         ];
     }

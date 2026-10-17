@@ -47,4 +47,3 @@ class NotificationController extends Controller
         return response()->json(['message' => 'Notification dismissed.']);
     }
 }
-

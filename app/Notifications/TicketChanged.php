@@ -18,7 +18,7 @@ class TicketChanged extends Notification implements ShouldQueue
     public int $tries = 3;
 
     /**
-     * @param array<string, mixed> $context
+     * @param  array<string, mixed>  $context
      */
     public function __construct(
         public int $ticketId,

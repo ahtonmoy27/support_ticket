@@ -26,4 +26,3 @@ class SlaApproachingNotification extends TicketNotification
         return "SLA warning: Ticket #{$ticket?->ticket_number} approaching resolution deadline.";
     }
 }
-

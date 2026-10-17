@@ -19,7 +19,6 @@ use App\Notifications\SlaApproachingNotification;
 use App\Notifications\SlaBreachedNotification;
 use App\Notifications\TicketAssignedNotification;
 use App\Notifications\TicketCreatedNotification;
-use App\Notifications\TicketNotification;
 use App\Notifications\TicketReassignedNotification;
 use App\Notifications\TicketReplyNotification;
 use App\Notifications\TicketStatusChangedNotification;
@@ -27,6 +26,7 @@ use Database\Seeders\SupportSeeder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RoleBasedNotificationSystemTest extends TestCase
@@ -341,7 +341,7 @@ class RoleBasedNotificationSystemTest extends TestCase
 
         // Create notification directly for user A
         $notificationA = $userA->notifications()->create([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'id' => (string) Str::uuid(),
             'type' => TicketCreatedNotification::class,
             'data' => ['ticket_id' => 1, 'event' => 'ticket.created', 'event_id' => 1],
             'read_at' => null,
@@ -423,4 +423,3 @@ class RoleBasedNotificationSystemTest extends TestCase
         Notification::assertSentToTimes($agent, SlaApproachingNotification::class, 1);
     }
 }
-

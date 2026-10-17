@@ -25,7 +25,7 @@ class InternalNoteNotification extends TicketNotification
             ->subject("[{$ticket->ticket_number}] Internal Note Added")
             ->greeting("Hello {$notifiable->name},")
             ->line("An internal team note was added to ticket #{$ticket->ticket_number}.")
-            ->line("Log in to the support workspace to review the internal note.")
+            ->line('Log in to the support workspace to review the internal note.')
             ->action('Open Ticket', url("/tickets/{$ticket->id}"));
     }
 
@@ -34,4 +34,3 @@ class InternalNoteNotification extends TicketNotification
         return "Internal note added to ticket #{$ticket?->ticket_number}.";
     }
 }
-

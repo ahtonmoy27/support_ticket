@@ -26,7 +26,7 @@ class ChangeTicketStatus
             $old = $ticket->status->value;
             if ($next === TicketStatus::Resolved) {
                 $ticket->resolved_at = now();
-                if ($ticket->sla_due_at->lessThanOrEqualTo(now()) && ! $ticket->sla_breached_at) {
+                if ($ticket->sla_due_at && $ticket->sla_due_at->lessThanOrEqualTo(now()) && ! $ticket->sla_breached_at) {
                     $ticket->sla_breached_at = $ticket->sla_due_at;
                 }
             }

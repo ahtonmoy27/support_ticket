@@ -18,7 +18,7 @@ class SlaBreachedNotification extends TicketNotification
             ->line("Ticket #{$ticket->ticket_number} has breached its SLA resolution deadline.")
             ->line("Priority: {$ticket->priority->value}")
             ->line("Target Deadline: {$due}")
-            ->line("Immediate escalation action is required.")
+            ->line('Immediate escalation action is required.')
             ->action('View Escalated Ticket', url("/tickets/{$ticket->id}"));
     }
 
@@ -27,4 +27,3 @@ class SlaBreachedNotification extends TicketNotification
         return "SLA breached: Ticket #{$ticket?->ticket_number} has exceeded resolution deadline.";
     }
 }
-

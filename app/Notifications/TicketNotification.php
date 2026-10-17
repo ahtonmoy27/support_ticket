@@ -2,7 +2,4 @@
 
 namespace App\Notifications;
 
-abstract class TicketNotification extends TicketChanged
-{
-}
-
+abstract class TicketNotification extends TicketChanged {}

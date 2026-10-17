@@ -22,15 +22,21 @@ class UpdateTicket
             abort_if(isset($data['priority']) && $actor->role === 'customer', 403);
             $old = $ticket->only(['subject', 'description', 'priority', 'sla_due_at', 'sla_warning_at']);
             if (isset($data['priority']) && $data['priority'] !== $ticket->priority->value) {
-                if ($ticket->sla_due_at->lessThanOrEqualTo(now()) && ! $ticket->sla_breached_at) {
+                if ($ticket->sla_due_at && $ticket->sla_due_at->lessThanOrEqualTo(now()) && ! $ticket->sla_breached_at) {
                     $ticket->sla_breached_at = $ticket->sla_due_at;
                 }
-                $rule = SlaRule::query()->where('sla_policy_id', $ticket->slaRule->sla_policy_id)->where('priority', $data['priority'])->firstOrFail();
+                $policyId = $ticket->slaRule?->sla_policy_id
+                    ?? SlaRule::query()->where('priority', $data['priority'])->whereHas('policy', fn ($q) => $q->where('is_active', true))->value('sla_policy_id');
+                $rule = SlaRule::query()->where('sla_policy_id', $policyId)->where('priority', $data['priority'])->firstOrFail();
+                $calendar = $ticket->sla_calendar_snapshot ?? $this->calculator->snapshot($rule->policy->calendar);
+                $start = $ticket->sla_started_at ? $ticket->sla_started_at->toImmutable() : now()->toImmutable();
                 $data['sla_rule_id'] = $rule->id;
                 $data['sla_target_minutes'] = $rule->resolution_minutes;
                 $data['sla_warning_percent'] = $rule->warning_percent;
-                $data['sla_due_at'] = $this->calculator->calculate($ticket->sla_started_at, $rule->resolution_minutes, $ticket->sla_calendar_snapshot);
-                $data['sla_warning_at'] = $this->calculator->calculate($ticket->sla_started_at, (int) ceil($rule->resolution_minutes * $rule->warning_percent / 100), $ticket->sla_calendar_snapshot);
+                $data['sla_calendar_snapshot'] = $calendar;
+                $data['sla_started_at'] = $start;
+                $data['sla_due_at'] = $this->calculator->calculate($start, $rule->resolution_minutes, $calendar);
+                $data['sla_warning_at'] = $this->calculator->calculate($start, (int) ceil($rule->resolution_minutes * $rule->warning_percent / 100), $calendar);
                 if ($data['sla_due_at']->lessThanOrEqualTo(now()) && ! $ticket->sla_breached_at) {
                     $ticket->sla_breached_at = $data['sla_due_at'];
                 }

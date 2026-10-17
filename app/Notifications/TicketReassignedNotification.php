@@ -31,7 +31,7 @@ class TicketReassignedNotification extends TicketNotification
             ->subject("[{$ticket->ticket_number}] Ticket Reassigned: {$ticket->subject}")
             ->greeting("Hello {$notifiable->name},")
             ->line("Ticket #{$ticket->ticket_number} has been transferred and reassigned to another support agent.")
-            ->line("You are no longer assigned to this ticket.")
+            ->line('You are no longer assigned to this ticket.')
             ->action('View Ticket Details', url("/tickets/{$ticket->id}"));
     }
 

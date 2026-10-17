@@ -36,4 +36,3 @@ class TicketReplyNotification extends TicketNotification
         return "Customer replied to ticket #{$ticket?->ticket_number}.";
     }
 }
-

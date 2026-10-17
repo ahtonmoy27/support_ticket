@@ -26,4 +26,3 @@ class TicketStatusChangedNotification extends TicketNotification
         return "Ticket #{$ticket?->ticket_number} marked as {$status}.";
     }
 }
-

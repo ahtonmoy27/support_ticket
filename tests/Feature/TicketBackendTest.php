@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Tickets\Actions\CreateTicket;
+use App\Http\Resources\TicketResource;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
@@ -271,5 +272,30 @@ class TicketBackendTest extends TestCase
         $activity = $ticket->activities()->where('action', 'ticket.auto_assignment_skipped')->first();
         $this->assertNotNull($activity);
         $this->assertSame("Auto-assignment skipped: no eligible agents found for category 'DevOps Special'", $activity->new_values['note']);
+    }
+
+    public function test_ticket_with_null_sla_due_at_resolves_and_serializes_without_errors(): void
+    {
+        $ticket = new Ticket([
+            'id' => 999,
+            'ticket_number' => 'TKT-2026-000999',
+            'subject' => 'Test',
+            'description' => 'Test',
+            'priority' => 'medium',
+            'status' => 'open',
+            'category_id' => 1,
+            'created_by' => 1,
+            'customer_id' => 1,
+            'sla_due_at' => null,
+            'sla_warning_at' => null,
+            'sla_breached_at' => null,
+        ]);
+
+        $resource = (new TicketResource($ticket))->toArray(request());
+        $this->assertSame('within', $resource['sla_state']);
+
+        $ticket->resolved_at = now();
+        $resourceResolved = (new TicketResource($ticket))->toArray(request());
+        $this->assertSame('within', $resourceResolved['sla_state']);
     }
 }
