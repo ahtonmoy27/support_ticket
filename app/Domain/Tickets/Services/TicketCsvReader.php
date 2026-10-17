@@ -7,14 +7,22 @@ use Illuminate\Support\Facades\Storage;
 
 class TicketCsvReader
 {
-    /** @return Generator<int, array{headers:list<string>,values:list<string|null>}> */
+    /**
+     * Reads CSV rows line-by-line using a PHP Generator.
+     * Keeps memory consumption minimal (O(1)) even for very large files.
+     *
+     * @return Generator<int, array{headers:list<string>,values:list<string|null>}>
+     */
     public function read(string $storageKey): Generator
     {
+        // Open file stream from private storage disk
         $stream = Storage::disk('private')->readStream($storageKey);
         if (! is_resource($stream)) {
             throw new \RuntimeException('Cannot read import file.');
         }
+
         try {
+            // Read and validate CSV headers (remove UTF-8 BOM if present)
             $headers = fgetcsv($stream, null, ',', '"', '');
             if (! is_array($headers)) {
                 throw new \InvalidArgumentException('CSV is empty.');
@@ -24,6 +32,8 @@ class TicketCsvReader
             if (count($headers) !== count(array_unique($headers)) || array_diff(['customer_email', 'category', 'subject', 'description', 'priority'], $headers)) {
                 throw new \InvalidArgumentException('Required unique CSV headers: customer_email,category,subject,description,priority.');
             }
+
+            // Stream rows one by one to avoid loading entire file in memory
             $rowNumber = 0;
             while (($values = fgetcsv($stream, null, ',', '"', '')) !== false) {
                 if ($values === [null]) {

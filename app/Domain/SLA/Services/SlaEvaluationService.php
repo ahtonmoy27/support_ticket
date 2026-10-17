@@ -11,6 +11,9 @@ class SlaEvaluationService
 {
     public function __construct(private RecordActivity $audit) {}
 
+    /**
+     * Checks a single ticket and records an escalation if approaching warning or breached.
+     */
     public function evaluateTicket(Ticket $ticket): bool
     {
         $now = now();
@@ -24,16 +27,20 @@ class SlaEvaluationService
                 return false;
             }
 
+            // Determine if ticket breached its deadline or is in warning period
             $level = ($locked->sla_due_at && $locked->sla_due_at->lessThanOrEqualTo($now)) ? 'breach' : 'warning';
             if ($locked->escalations()->where('cycle', 1)->where('level', $level)->exists()) {
                 return false;
             }
 
+            // Record escalation record and update breached timestamp
             $triggered = $level === 'breach' ? ($locked->sla_due_at ?? $locked->sla_warning_at) : $locked->sla_warning_at;
             $locked->escalations()->create(['cycle' => 1, 'level' => $level, 'triggered_at' => $triggered]);
             if ($level === 'breach' && ! $locked->sla_breached_at && $locked->sla_due_at) {
                 $locked->update(['sla_breached_at' => $locked->sla_due_at]);
             }
+
+            // Audit the escalation event (dispatches notification via outbox)
             $this->audit->execute($locked, null, 'sla.'.$level, [], ['triggered_at' => $triggered->toIso8601String()], 'internal');
 
             $ticket->refresh();
@@ -42,6 +49,9 @@ class SlaEvaluationService
         }, 3);
     }
 
+    /**
+     * Periodically evaluated by scheduler (tickets:check-sla) to escalate active tickets.
+     */
     public function execute(): int
     {
         $count = 0;
